@@ -22,7 +22,7 @@ jobs:
 
 Two settings on this repository make that work, and neither is a file:
 
-- **Settings → Actions → General → Access** must allow access from repositories owned by the same user, or a private consumer's call is refused as not found. A public repository's workflows are callable by anyone.
+- This repository is public, so any repository can call its workflows and actions, private consumers included. If it were ever made private, **Settings → Actions → General → Access** would have to allow repositories owned by the same user, or a consumer's call is refused as not found.
 - **Tags** `vX.Y.Z` and a moving `vX` are published per [CONTRIBUTING](CONTRIBUTING.md#releasing). Dependabot needs the tags to see a version behind a sha.
 
 Composite actions run whatever `node` is on the runner's PATH, so call them after `setup-node` (or after `setup-node-project`). Node 22 or newer.
