@@ -16,7 +16,9 @@ permissions:
   pull-requests: read
 
 jobs:
-  hygiene:
+  # `pr-hygiene`, the same job name the template uses, so the required status
+  # check is one name in every repository.
+  pr-hygiene:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
