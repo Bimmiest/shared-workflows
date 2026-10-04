@@ -1,0 +1,31 @@
+name: Audit check
+description: >-
+  `npm audit` on production dependencies with a floor and an exceptions file:
+  fails on an advisory at or above the floor that is not listed, on an expired
+  entry, and on an entry the report no longer needs. Needs Node and npm on the
+  PATH, and a lockfile; it does not install anything.
+inputs:
+  exceptions:
+    description: The exceptions file. A missing file is an empty list.
+    default: .audit-exceptions.json
+  omit:
+    description: The dependency type `npm audit` leaves out (`--omit`). Empty audits everything.
+    default: dev
+  level:
+    description: The lowest severity that fails the step (`info`, `low`, `moderate`, `high`, `critical`).
+    default: high
+  working-directory:
+    description: The directory holding the lockfile to audit.
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: Advisories in production dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        EXCEPTIONS: ${{ inputs.exceptions }}
+        OMIT: ${{ inputs.omit }}
+        LEVEL: ${{ inputs.level }}
+        SCRIPT: ${{ github.action_path }}/audit-check.mjs
+      run: node "$SCRIPT" --exceptions "$EXCEPTIONS" --omit "$OMIT" --level "$LEVEL"

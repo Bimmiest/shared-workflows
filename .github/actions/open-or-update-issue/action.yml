@@ -1,0 +1,67 @@
+name: Open or update an issue
+description: >-
+  Opens an issue carrying `label` when none is open, otherwise comments on the
+  one that is. For a scheduled check: a failed job is a red mark nobody is
+  subscribed to, an issue is a thing with an owner, and reusing it means a
+  week of the same finding is one issue rather than seven. The calling job
+  needs `issues: write`, and should be a job of its own that checks nothing
+  out, so the token that can write to the tracker never meets untrusted code.
+inputs:
+  title:
+    description: The issue title when one is opened.
+    required: true
+  body:
+    description: The issue body when one is opened. `{run}` is replaced by this run's URL.
+    required: true
+  label:
+    description: The label that identifies the issue, and that an open issue is looked up by.
+    required: true
+  comment:
+    description: The comment left on an existing open issue. `{run}` is replaced by this run's URL.
+    default: 'Still the case as of {run}.'
+  token:
+    description: 'A token with `issues: write`.'
+    default: ${{ github.token }}
+outputs:
+  number:
+    description: The number of the issue opened or commented on.
+    value: ${{ steps.issue.outputs.number }}
+  action:
+    description: '`opened` or `commented`.'
+    value: ${{ steps.issue.outputs.action }}
+runs:
+  using: composite
+  steps:
+    - id: issue
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+      env:
+        ISSUE_TITLE: ${{ inputs.title }}
+        ISSUE_BODY: ${{ inputs.body }}
+        ISSUE_LABEL: ${{ inputs.label }}
+        ISSUE_COMMENT: ${{ inputs.comment }}
+      with:
+        github-token: ${{ inputs.token }}
+        script: |
+          const { owner, repo } = context.repo;
+          const run = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+          const fill = (text) => text.replaceAll('{run}', run);
+          const label = process.env.ISSUE_LABEL;
+          const existing = await github.rest.issues.listForRepo({ owner, repo, state: 'open', labels: label, per_page: 1 });
+          if (existing.data.length > 0) {
+            const number = existing.data[0].number;
+            await github.rest.issues.createComment({ owner, repo, issue_number: number, body: fill(process.env.ISSUE_COMMENT) });
+            core.setOutput('number', String(number));
+            core.setOutput('action', 'commented');
+            core.info(`Commented on #${number}.`);
+          } else {
+            const created = await github.rest.issues.create({
+              owner,
+              repo,
+              title: process.env.ISSUE_TITLE,
+              body: fill(process.env.ISSUE_BODY),
+              labels: [label],
+            });
+            core.setOutput('number', String(created.data.number));
+            core.setOutput('action', 'opened');
+            core.info(`Opened #${created.data.number}.`);
+          }

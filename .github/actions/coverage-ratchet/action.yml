@@ -1,0 +1,40 @@
+name: Coverage ratchet
+description: >-
+  Fails when a vitest coverage floor sits more than `slack` points under what
+  the suite measured, and prints the thresholds block to write. The other pawl
+  of the ratchet: vitest fails a run under the floor, this fails one that has
+  outgrown it. Run it after the coverage run, with Node already set up.
+inputs:
+  config:
+    description: The vitest config whose `coverage.thresholds` are checked.
+    default: vitest.config.ts
+  summary:
+    description: The `json-summary` report the coverage run wrote.
+    default: coverage/coverage-summary.json
+  slack:
+    description: How many points a measurement may exceed its floor before the floor must move.
+    default: '1'
+  parse:
+    description: >-
+      `import` loads the config as a module (per-glob thresholds included);
+      `text` reads the top-level thresholds block as text. `import` falls back
+      to `text` on its own when the module will not load.
+    default: import
+  working-directory:
+    description: Where the config and summary paths are resolved from.
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: Coverage floor is current
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      # Inputs reach the script as environment variables, never pasted into
+      # the command: an input is text a caller wrote.
+      env:
+        CONFIG: ${{ inputs.config }}
+        SUMMARY: ${{ inputs.summary }}
+        SLACK: ${{ inputs.slack }}
+        PARSE: ${{ inputs.parse }}
+        SCRIPT: ${{ github.action_path }}/ratchet.mjs
+      run: node "$SCRIPT" --config "$CONFIG" --summary "$SUMMARY" --slack "$SLACK" --parse "$PARSE"

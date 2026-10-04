@@ -1,0 +1,64 @@
+name: CI
+
+# This repository's own gates. The scripts behind the composite actions are
+# unit-tested with Node's own runner, so the repository needs no install; the
+# two reusable workflows are run against this repository, which is how they
+# are proved to be callable at all.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # Weekly, because the security job's verdict changes without a push.
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push supersedes an in-flight run for the same pull request. Never
+# cancel main: its result is the record of whether the default branch is green.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Script tests
+        run: npm test
+
+      # The checks are run against this repository too, so the action.yml
+      # wiring (paths, flags, env) is exercised and not only the scripts.
+      #
+      # `./` rather than the `$/` self-repository syntax zizmor asks for:
+      # GitHub has accepted `$/` since 2026-07-30, but actionlint 1.7.12 (the
+      # newest release, 2026-03-30) rejects it as a malformed ref, and both
+      # linters run on this file. Switch when actionlint learns it, and drop
+      # the ignores.
+      - name: docs-check, on this repository
+        uses: ./.github/actions/docs-check # zizmor: ignore[self-repository]
+
+      - name: node-patch-check, on this repository
+        uses: ./.github/actions/node-patch-check # zizmor: ignore[self-repository]
+        with:
+          warn-only: ${{ github.event_name == 'pull_request' }}
+
+  workflow-lint:
+    uses: ./.github/workflows/workflow-lint.yml # zizmor: ignore[self-repository]
+
+  security:
+    uses: ./.github/workflows/security.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
+      pull-requests: read

@@ -1,0 +1,33 @@
+name: PR hygiene
+
+# The branch and issue convention, enforced on this repository by its own
+# action. `edited` because fixing the description is how most failures get
+# fixed, and `labeled`/`unlabeled` because `no-issue` changes the verdict.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, labeled, unlabeled]
+
+concurrency:
+  group: pr-hygiene-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  hygiene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      # `./` rather than `$/`, for the reason ci.yml gives: actionlint does not
+      # accept the self-repository syntax yet.
+      - uses: ./.github/actions/pr-hygiene # zizmor: ignore[self-repository]

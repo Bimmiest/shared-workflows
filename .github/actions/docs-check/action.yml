@@ -1,0 +1,28 @@
+name: Docs check
+description: >-
+  The documentation facts a reviewer cannot be trusted to notice: every
+  relative Markdown link resolves, the ADR index agrees with the ADR directory
+  and is in order, every gap in the ADR numbering is explained, and every root
+  `LICENSE-*` file is linked from the README. Needs Node on the PATH and no
+  install.
+inputs:
+  adr-dir:
+    description: The directory of `NNNN-*.md` records with a `README.md` index. Skipped when it does not exist.
+    default: docs/adr
+  config:
+    description: Optional JSON with `skipDirs` and `knownDeadLinks` (`{ file, target, reason }`, ADR records only).
+    default: .docs-check.json
+  working-directory:
+    description: The repository root to check.
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: Documentation links and the ADR index
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        ADR_DIR: ${{ inputs.adr-dir }}
+        CONFIG: ${{ inputs.config }}
+        SCRIPT: ${{ github.action_path }}/docs-check.mjs
+      run: node "$SCRIPT" --root . --adr-dir "$ADR_DIR" --config "$CONFIG"

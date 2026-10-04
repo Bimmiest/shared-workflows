@@ -1,0 +1,33 @@
+name: Node patch check
+description: >-
+  `.nvmrc` is the newest patch release of its Node line, asked of nodejs.org.
+  Dependabot does not read `.nvmrc`, so this is what says when a Node security
+  release is out. Fail on a schedule (the red run is the reminder); warn only
+  on a pull request, so an unrelated change is not blocked by a release that
+  shipped this morning.
+inputs:
+  nvmrc:
+    description: The file holding the exact pinned version.
+    default: .nvmrc
+  warn-only:
+    description: Annotate and exit 0 instead of failing.
+    default: 'false'
+  working-directory:
+    description: Where the file path is resolved from.
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: .nvmrc is the newest patch of its Node line
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        NVMRC: ${{ inputs.nvmrc }}
+        WARN_ONLY: ${{ inputs.warn-only }}
+        SCRIPT: ${{ github.action_path }}/node-patch.mjs
+      run: |
+        if [ "$WARN_ONLY" = "true" ]; then
+          node "$SCRIPT" --nvmrc "$NVMRC" --warn-only
+        else
+          node "$SCRIPT" --nvmrc "$NVMRC"
+        fi

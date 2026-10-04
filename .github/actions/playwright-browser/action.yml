@@ -1,0 +1,45 @@
+name: Playwright browser
+description: >-
+  Installs one Playwright browser, cached on the resolved `@playwright/test`
+  version so a bump invalidates it on its own. The download is ~130 MB and
+  `--with-deps` shells out to apt every run, for a browser that only changes
+  when Playwright does; the apt packages live outside the cache and are
+  installed either way. Run after the project's dependencies are installed.
+inputs:
+  browser:
+    description: The browser project to install (`chromium`, `firefox`, `webkit`).
+    default: chromium
+  working-directory:
+    description: Where `@playwright/test` resolves from.
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: Resolve Playwright version
+      id: playwright
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+    - name: Cache the browser
+      id: cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ inputs.browser }}-${{ steps.playwright.outputs.version }}
+
+    - name: Install the browser and its system packages
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        BROWSER: ${{ inputs.browser }}
+      run: npx playwright install --with-deps "$BROWSER"
+
+    - name: Install the system packages only
+      if: steps.cache.outputs.cache-hit == 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        BROWSER: ${{ inputs.browser }}
+      run: npx playwright install-deps "$BROWSER"

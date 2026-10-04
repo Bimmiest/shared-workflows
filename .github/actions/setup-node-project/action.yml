@@ -1,0 +1,50 @@
+name: Set up a Node project
+description: >-
+  The Node named in `.nvmrc`, the npm cache, and `npm ci --ignore-scripts`.
+  One place for the install step every job repeats, so the next job does not
+  rediscover why each flag is there. Run after `actions/checkout`.
+inputs:
+  node-version-file:
+    description: The file setup-node reads the version from. Keep `engines` in package.json in step with it.
+    default: .nvmrc
+  cache-dependency-path:
+    description: Lockfiles to key the npm cache on; one per line. Empty means the root `package-lock.json`.
+    default: ''
+  install:
+    description: Whether to run `npm ci` at all.
+    default: 'true'
+  ignore-scripts:
+    description: >-
+      Pass `--ignore-scripts` to `npm ci`. On by default: CI should test the
+      tree that ships, not one that also ran every dependency's install hook,
+      and a newly published package's postinstall is the supply-chain attack
+      that actually happens. Turn it off only for a dependency that needs its
+      hook (a native build), and say which in the workflow.
+    default: 'true'
+  working-directory:
+    description: Where `npm ci` runs.
+    default: .
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version-file: ${{ inputs.node-version-file }}
+        cache: npm
+        cache-dependency-path: ${{ inputs.cache-dependency-path }}
+
+    # `npm ci` rather than `npm install`: it installs exactly the lockfile and
+    # fails if package.json and the lock have diverged, which is a thing worth
+    # failing on rather than silently resolving.
+    - name: Install dependencies
+      if: inputs.install == 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        IGNORE_SCRIPTS: ${{ inputs.ignore-scripts }}
+      run: |
+        if [ "$IGNORE_SCRIPTS" = "true" ]; then
+          npm ci --ignore-scripts
+        else
+          npm ci
+        fi

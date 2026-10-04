@@ -1,0 +1,40 @@
+name: PR hygiene
+description: >-
+  Fails a pull request whose branch is not `<type>/<short-description>-<issue>`
+  or whose description links no issue, unless it carries the no-issue label or
+  was opened by an exempt author. One `::error::` annotation per broken rule;
+  it writes nothing back. Use it on `pull_request` with types `opened, edited,
+  synchronize, reopened, labeled, unlabeled`, so an edited description re-runs it.
+inputs:
+  types:
+    description: The allowed branch types, comma-separated.
+    default: feature,fix,refactor,docs,ci,chore
+  no-issue-label:
+    description: The label that exempts a typo-sized change from naming an issue.
+    default: no-issue
+  exempt-authors:
+    description: Logins whose branches a tool names, comma-separated.
+    default: dependabot[bot]
+runs:
+  using: composite
+  steps:
+    - name: Check branch and issue link
+      shell: bash
+      # The pull request reaches the script through the environment. Its body
+      # and branch are author-written text, and `${{ }}` inside `run:` would be
+      # pasted into the shell before it parses.
+      env:
+        PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+        PR_BODY: ${{ github.event.pull_request.body }}
+        PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        PR_TYPES: ${{ inputs.types }}
+        PR_NO_ISSUE_LABEL: ${{ inputs.no-issue-label }}
+        PR_EXEMPT_AUTHORS: ${{ inputs.exempt-authors }}
+        SCRIPT: ${{ github.action_path }}/pr-hygiene.mjs
+      run: |
+        if [ -z "$PR_BRANCH" ]; then
+          echo "::error::No pull request in the event payload; this action runs on pull_request events."
+          exit 1
+        fi
+        node "$SCRIPT"

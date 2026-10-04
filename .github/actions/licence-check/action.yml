@@ -1,0 +1,27 @@
+name: Licence check
+description: >-
+  Every production dependency in the lockfile is licensed under something the
+  repository's allowlist accepts, read from the `license` fields npm records in
+  `package-lock.json`. Needs no install and no network. Fails on a package the
+  list does not cover, and on a package entry nothing needs any more.
+inputs:
+  lockfile:
+    description: The lockfile to read.
+    default: package-lock.json
+  allowlist:
+    description: The allowlist. When it is missing the step fails and prints a starting one.
+    default: .licence-allowlist.json
+  working-directory:
+    description: Where the two paths are resolved from.
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: Production dependency licences
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        LOCKFILE: ${{ inputs.lockfile }}
+        ALLOWLIST: ${{ inputs.allowlist }}
+        SCRIPT: ${{ github.action_path }}/licence-check.mjs
+      run: node "$SCRIPT" --lockfile "$LOCKFILE" --allowlist "$ALLOWLIST"

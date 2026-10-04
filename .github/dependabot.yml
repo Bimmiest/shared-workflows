@@ -1,0 +1,25 @@
+version: 2
+
+# Every `uses:` in this repository is a commit sha with the version it was in
+# a trailing comment. A sha cannot move on its own, so without something
+# raising the pin forward it rots into a permanently stale action; these
+# updates are that something. Dependabot reads the trailing comment to work
+# out what a pin currently is, and rewrites the sha and the comment together.
+#
+# There is no npm entry: the scripts have no dependencies and the repository
+# has no lockfile.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+    # A compromised action tag is the same hazard as a compromised package,
+    # and the sha pin only protects anyone if it is not raised on day one.
+    # Security updates are not held back; cooldown applies to version updates.
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns: ['*']

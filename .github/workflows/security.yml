@@ -1,0 +1,163 @@
+name: Security
+
+# Reusable: secrets in the history (gitleaks) and vulnerabilities and
+# misconfiguration in the tree (trivy). Call it from a workflow of its own
+# rather than from CI, for the same reason a browser job is separate from a
+# verify job: a red run here against a green one there says immediately which
+# kind of thing broke, and neither waits on the other to fail fast.
+#
+# Give the caller a schedule. Both checks go red without anybody having pushed
+# anything: an advisory is published upstream, or a secret that has been in
+# the history for months is finally recognised by a newer rule. A workflow that
+# only runs on commits learns about those on whatever day somebody happens to
+# open a pull request.
+#
+#   jobs:
+#     security:
+#       uses: Bimmiest/shared-workflows/.github/workflows/security.yml@<sha> # vX.Y.Z
+#       permissions:
+#         contents: read
+#         pull-requests: read
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        description: The runner labels, as a JSON array.
+        type: string
+        default: '["ubuntu-latest"]'
+      gitleaks:
+        description: Scan the whole history for secrets.
+        type: boolean
+        default: true
+      trivy:
+        description: Scan the tree for vulnerabilities and misconfiguration.
+        type: boolean
+        default: true
+      trivy-scanners:
+        description: Trivy's `scanners`. `misconfig` is what covers a Dockerfile; add `secret` only if gitleaks is off.
+        type: string
+        default: vuln,misconfig
+      trivy-severity:
+        description: The severities that fail the scan.
+        type: string
+        default: CRITICAL,HIGH
+      trivy-ignore-unfixed:
+        description: >-
+          Fail only when a fixed version exists to move to. On by default: an
+          advisory with no fix is real but not a thing a pull request can do
+          anything about, and failing branches on it is how a gate becomes
+          something people learn to skip.
+        type: boolean
+        default: true
+      trivyignores:
+        description: >-
+          The YAML ignore file, named because Trivy auto-loads only the plain
+          `.trivyignore` and the YAML form is the one that carries reasoning
+          beside each entry. Skipped when the file does not exist.
+        type: string
+        default: .trivyignore.yaml
+    secrets:
+      GITLEAKS_LICENSE:
+        description: Required by gitleaks-action for organisation-owned repositories only.
+        required: false
+
+permissions:
+  contents: read
+
+# bash, stated, because inside a `container:` the runner does not assume it:
+# on ubuntu-latest every `run:` step gets `bash -e`, in a job container the
+# same steps get `sh -e`.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  gitleaks:
+    if: inputs.gitleaks
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
+    timeout-minutes: 15
+    # `pull-requests: read` because on a pull request the action lists the
+    # PR's commits to work out what to scan, and the restricted token 403s
+    # without it. Read, not write: it could comment its findings on the PR,
+    # but that hands a write token to a job whose purpose is reading history
+    # for secrets, and the job summary already carries the findings.
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The whole history, not the tip. A credential that was committed and
+          # then removed in the next commit is still a leaked credential; it is
+          # in the pack, and anyone who cloned has it. A shallow checkout would
+          # scan the one state of the tree in which the problem is invisible.
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Git refuses to read a repository owned by a different user than the
+      # one asking ("dubious ownership"), which inside a job container is every
+      # time. gitleaks treats any stderr as fatal, so the refusal reads as
+      # "failed to scan Git repository". Scoped to this workspace, not `*`; a
+      # no-op on a hosted runner.
+      - name: Let git read a checkout owned by another user
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      # Gates unconditionally, with no severity floor and no ignore-unfixed
+      # equivalent, because there is no such thing as an unactionable hit: the
+      # remedy for a secret in history is to rotate it, whatever the finding's
+      # confidence. A false positive is cheaper to allowlist (in the caller's
+      # `.gitleaks.toml`, with `useDefault = true` and the singular
+      # `[allowlist]`) than a real key is to discover from someone else.
+      - name: Scan the history for secrets
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+          GITLEAKS_ENABLE_COMMENTS: false
+          # The results artifact is rooted at HOME, which inside a container is
+          # not a parent of the workspace and the upload throws after a scan
+          # that already reported. Nothing reads it; the summary carries the
+          # findings and a real hit fails on gitleaks' own exit code.
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
+
+  trivy:
+    if: inputs.trivy
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # `trivyignores`, one word: the action takes no `trivy-ignores`, and an
+      # input an action does not declare is not an error, so the scan would run
+      # with no ignore file and the failure would look like the finding coming
+      # back rather than like a typo. Trivy also errors on a named file that is
+      # missing, so a caller without one passes nothing.
+      - name: Find the ignore file
+        id: ignores
+        env:
+          FILE: ${{ inputs.trivyignores }}
+        run: |
+          if [ -n "$FILE" ] && [ -f "$FILE" ]; then
+            echo "file=$FILE" >> "$GITHUB_OUTPUT"
+          else
+            echo "file=" >> "$GITHUB_OUTPUT"
+            echo "::notice::No Trivy ignore file at '$FILE'; scanning with none."
+          fi
+
+      # `fs` rather than `image`: what this reaches is the lockfile and the
+      # Dockerfile, which is where a fix would be made in any case. Trivy's npm
+      # analyzer excludes dev dependencies by default, so this lands on the same
+      # posture as `npm audit --omit=dev`: what ships and is reachable gates,
+      # tooling does not.
+      - name: Scan the tree for vulnerabilities and misconfiguration
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: ${{ inputs.trivy-scanners }}
+          severity: ${{ inputs.trivy-severity }}
+          ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
+          exit-code: 1
+          trivyignores: ${{ steps.ignores.outputs.file }}

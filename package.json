@@ -1,0 +1,26 @@
+{
+  "name": "@bimmiest/shared-workflows",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Reusable GitHub Actions workflows and composite actions: the CI gates shared across Bimmiest repositories.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bimmiest/shared-workflows.git"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "test": "node --test '.github/actions/**/*.test.mjs'"
+  },
+  "bin": {
+    "audit-check": ".github/actions/audit-check/audit-check.mjs",
+    "coverage-ratchet": ".github/actions/coverage-ratchet/ratchet.mjs",
+    "docs-check": ".github/actions/docs-check/docs-check.mjs",
+    "licence-check": ".github/actions/licence-check/licence-check.mjs",
+    "node-patch-check": ".github/actions/node-patch-check/node-patch.mjs",
+    "pr-hygiene": ".github/actions/pr-hygiene/pr-hygiene.mjs"
+  }
+}
