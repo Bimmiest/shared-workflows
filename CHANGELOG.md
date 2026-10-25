@@ -6,6 +6,16 @@ All notable changes to the shared workflows and actions, newest first. Entries s
 
 ## Unreleased
 
+## 1.0.1 — 2026-10-25
+
+### Fixed
+
+- **The npx route runs the check** ([#4](https://github.com/Bimmiest/shared-workflows/issues/4)). Through `npx -y -p github:Bimmiest/shared-workflows#v1 <check>`, every script exited 0 without running, because its main guard compared the unresolved `.bin` symlink with the real file. A local run is now the check CI runs. The actions run the scripts by path and are unaffected.
+
+### Changed
+
+- **`setup-node-project` uses `actions/setup-node` 7.1.0**, which the workflows here already used. Dependabot now also watches the composite actions, whose pins it did not read before.
+
 ## 1.0.0 — 2026-10-04
 
 The first release, distilled from the CI of `Bimmiest/propslab` and `Bimmiest/propslab-ent`.

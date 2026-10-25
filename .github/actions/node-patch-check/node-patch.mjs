@@ -23,7 +23,7 @@
  * --warn-only: a reminder that silently stops firing is the failure it
  * exists to prevent.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
@@ -98,6 +98,6 @@ async function main() {
 }
 
 // Importing this file (the test does) must not fetch anything.
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(path.resolve(process.argv[1]))).href) {
   process.exitCode = await main();
 }

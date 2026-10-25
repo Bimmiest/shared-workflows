@@ -10,7 +10,12 @@ version: 2
 # has no lockfile.
 updates:
   - package-ecosystem: github-actions
-    directory: /
+    # The composite actions' `uses:` lines are what consumers run, and with
+    # only `/` Dependabot reads .github/workflows and never them: v1.0.0
+    # shipped setup-node 7.0.0 a release after the workflows had moved on.
+    directories:
+      - /
+      - /.github/actions/*
     schedule:
       interval: weekly
       day: monday
