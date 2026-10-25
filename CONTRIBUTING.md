@@ -160,6 +160,7 @@ each consumer red.
     ci.yml               the gates of this repository, which run the two above on it
     pr-hygiene.yml       the PR hygiene of this repository, from the action below
     release.yml          tags and publishes a release when `version` changes
+    settings.yml         the weekly settings check of this repository
   actions/<name>/
     action.yml           the composite action
     <name>.mjs           the script that it runs, where there is one
