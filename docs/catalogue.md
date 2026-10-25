@@ -38,6 +38,7 @@ the `PATH` of the runner, and they need Node 22 or later.
 | [`audit-check`](../.github/actions/audit-check/action.yml) | Runs `npm audit --omit=dev`, and fails at `high`. Each exception has a reason and an expiry. An exception that has expired, or that no advisory needs, fails. | `.audit-exceptions.json` |
 | [`licence-check`](../.github/actions/licence-check/action.yml) | Fails when the licence of a production dependency is not on the allowlist. It reads the `license` fields of the lockfile, and installs nothing. | `.licence-allowlist.json`, `package-lock.json` |
 | [`pr-hygiene`](../.github/actions/pr-hygiene/action.yml) | Fails when the branch is not `<type>/<short-description>-<issue>`, or the description does not link the issue. The `no-issue` label and `dependabot[bot]` are exempt. | The `pull_request` event |
+| [`changelog-check`](../.github/actions/changelog-check/action.yml) | Fails when a pull request changes a file in `paths` and does not change `CHANGELOG.md`. Tests are ignored. The `no-changelog` label and `dependabot[bot]` are exempt. | The files of the pull request. On a private repository the job needs `pull-requests: read` |
 | [`docs-check`](../.github/actions/docs-check/action.yml) | Fails on a relative Markdown link that does not resolve. Fails when the ADR index does not agree with `docs/adr/`, is not in order, or does not explain a gap. Fails when a root `LICENSE-*` file is not in the README. With `readmeMaxLines`, fails on a longer README. With `ste`, warns on each word that ASD-STE100 does not allow, in the files that `ste` names. | The Markdown files, `.docs-check.json` if it exists |
 | [`node-patch-check`](../.github/actions/node-patch-check/action.yml) | Fails when `.nvmrc` is not the newest patch of its Node line. It asks nodejs.org. Use `warn-only` on a pull request. | `.nvmrc` |
 | [`repo-settings-check`](../.github/actions/repo-settings-check/action.yml) | Fails when a repository setting differs from the checklist of `repo-template`: the merge methods and the squash body, branch deletion, the wiki, the Actions permissions and SHA pinning, fork approval, private vulnerability reporting, Dependabot alerts, secret scanning, push protection, and the ruleset on `main`. A setting that the token cannot read fails. Each exception has a reason, and an exception that nothing needs fails. | A `token` with "Administration: read", `.repo-settings.json` if it exists |
@@ -51,14 +52,15 @@ the `PATH` of the runner, and they need Node 22 or later.
 | `coverage-ratchet` | `slack` | `1` | Not usually. A larger slack lets the floor fall behind the measurement. |
 | `audit-check` | `level` | `high` | Not usually. The level is the same in each repository on purpose. |
 | `pr-hygiene` | `types` | `feature,fix,refactor,docs,ci,chore` | The repository uses a different list of branch types. |
+| `changelog-check` | `paths` | `src/**` | The files that a user gets are not in `src/`, for example the actions of this repository. |
 | `node-patch-check` | `warn-only` | `false` | Set it to `true` on a pull request, so that a Node release does not block an unrelated change. |
 | `repo-settings-check` | `token` | none | Always. GITHUB_TOKEN cannot read most of the settings. Pass a secret, for example `SETTINGS_READ_TOKEN`. |
 | all script actions | `working-directory` | `.` | The project is in a subdirectory. |
 
 ## The commands behind the actions
 
-Seven actions run a script that is also a command. `npm` installs these
-`bin` names: `audit-check`, `coverage-ratchet`, `docs-check`,
+Eight actions run a script that is also a command. `npm` installs these
+`bin` names: `audit-check`, `changelog-check`, `coverage-ratchet`, `docs-check`,
 `licence-check`, `node-patch-check`, `pr-hygiene` and
 `repo-settings-check`. The arguments of a command are the same
 as the arguments that the action gives. [consuming.md](consuming.md) tells you
