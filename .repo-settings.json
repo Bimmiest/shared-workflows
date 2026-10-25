@@ -1,6 +1,7 @@
 {
   "requiredChecks": [
     "test",
+    "actions",
     "workflow-lint / workflow-lint",
     "pr-hygiene",
     "security / gitleaks",
