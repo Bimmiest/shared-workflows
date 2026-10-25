@@ -86,5 +86,6 @@ Two facts make the pins work. Neither is a file.
   call as "not found".
 - **Each release has two tags:** `vX.Y.Z`, and a major tag `vX` that moves to
   the newest release. Dependabot needs the tags to find a version behind a
-  SHA. [CONTRIBUTING](../CONTRIBUTING.md#releases) tells you how to tag a
-  release.
+  SHA. A `vX.Y.Z` tag cannot move or be deleted, because a ruleset refuses it
+  and the release is immutable. Thus the commit behind a version stays the
+  same. To check a release, run `gh release verify vX.Y.Z -R Bimmiest/shared-workflows`.

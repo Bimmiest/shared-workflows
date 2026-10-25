@@ -131,14 +131,15 @@ version, and tells a person what the pin is.
    `## x.y.z — YYYY-MM-DD`. Add a new, empty `## Unreleased` above it.
 2. Change `version` in `package.json` to `x.y.z`.
 3. Open a pull request, and merge it when CI is green.
-4. Tag the merge commit, and move the major tag to it:
 
-   ```bash
-   git tag -a vx.y.z <sha> -m "Release x.y.z"
-   git tag -f vx <sha>
-   git push origin vx.y.z
-   git push -f origin vx
-   ```
+`release.yml` does the rest. It tags the merge commit `vx.y.z`, publishes a
+GitHub Release with the CHANGELOG section, and moves `vx` to the same commit.
+If the CHANGELOG has no section for the version, the workflow fails.
+
+Do not tag a release by hand. A ruleset refuses to move or delete a `v*.*.*`
+tag, and releases are immutable. Thus a wrong release cannot be corrected:
+publish a new patch release
+([ADR 0004](docs/adr/0004-a-workflow-publishes-each-release-and-a-release-tag-does-not-move.md)).
 
 Dependabot proposes the bump in each consumer within the next week. The
 cooldown is seven days on purpose.
@@ -158,6 +159,7 @@ each consumer red.
     scorecard.yml        reusable
     ci.yml               the gates of this repository, which run the two above on it
     pr-hygiene.yml       the PR hygiene of this repository, from the action below
+    release.yml          tags and publishes a release when `version` changes
   actions/<name>/
     action.yml           the composite action
     <name>.mjs           the script that it runs, where there is one
