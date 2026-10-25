@@ -24,6 +24,7 @@
  * Prints every rule the pull request broke as a `::error::` annotation and
  * exits 1, or prints that it passed and exits 0.
  */
+import { realpathSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -159,7 +160,7 @@ export function run(env) {
   return { lines: problems.map((problem) => `::error::${escapeCommand(problem)}`), code: 1 };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(path.resolve(process.argv[1]))).href) {
   const { lines, code } = run(process.env);
   for (const line of lines) console.log(line);
   process.exitCode = code;
