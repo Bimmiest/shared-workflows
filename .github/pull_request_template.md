@@ -27,7 +27,7 @@ Say what you ran, and what it said. "Tests pass" is a claim. The output is
 the evidence. Paste the important lines.
 -->
 
-- [ ] `npm test`
+- [ ] `npm run test:coverage`, and the floors in `package.json` are raised if the measurement went up
 - [ ] Each changed action or workflow ran from a branch of a consumer, pinned to the SHA of this branch
 - [ ] Each new `uses:` is `owner/action@<sha> # vX.Y.Z`
 - [ ] The documents that this change makes wrong are updated in this change, in ASD-STE100 ([CONTRIBUTING](../CONTRIBUTING.md#documentation)):

@@ -35,8 +35,10 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Script tests
-        run: npm test
+      # The floors are in package.json. They hold one direction only: raise
+      # them by hand when a change adds tests (docs/adr/0003).
+      - name: Script tests and coverage floor
+        run: npm run test:coverage
 
       # The checks are run against this repository too, so the action.yml
       # wiring (paths, flags, env) is exercised and not only the scripts.
