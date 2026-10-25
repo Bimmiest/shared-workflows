@@ -1,0 +1,55 @@
+name: Changelog check
+description: >-
+  Fails a pull request that changes the files a user can notice and not the
+  changelog, unless it carries the exempting label or was opened by an exempt
+  author. Reads the changed files through the pull request files API, so it
+  needs no checkout; on a private repository the calling job needs
+  `pull-requests: read`. Use it on `pull_request` with types `opened,
+  synchronize, reopened, labeled, unlabeled`, so adding the label re-runs it.
+inputs:
+  paths:
+    description: Globs of the files whose change needs a changelog entry, comma-separated.
+    default: src/**
+  ignore:
+    description: Globs of the files that never need one, comma-separated.
+    default: '**/__tests__/**,**/*.test.*'
+  changelog:
+    description: The changelog's path.
+    default: CHANGELOG.md
+  label:
+    description: The label that exempts a change no user can see.
+    default: no-changelog
+  exempt-authors:
+    description: Logins exempt from the check, comma-separated.
+    default: dependabot[bot]
+  token:
+    description: 'A token that can read the pull request.'
+    default: ${{ github.token }}
+runs:
+  using: composite
+  steps:
+    - name: Check for a changelog entry
+      shell: bash
+      # Everything reaches the script through the environment: file names and
+      # labels are author-chosen text, and `${{ }}` inside `run:` would be
+      # pasted into the shell before it parses.
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        CL_PATHS: ${{ inputs.paths }}
+        CL_IGNORE: ${{ inputs.ignore }}
+        CL_CHANGELOG: ${{ inputs.changelog }}
+        CL_LABEL: ${{ inputs.label }}
+        CL_EXEMPT_AUTHORS: ${{ inputs.exempt-authors }}
+        SCRIPT: ${{ github.action_path }}/changelog-check.mjs
+      run: |
+        if [ -z "$PR_NUMBER" ]; then
+          echo "::error::No pull request in the event payload; this action runs on pull_request events."
+          exit 1
+        fi
+        CHANGED_FILES=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" --jq '.[].filename')
+        export CHANGED_FILES
+        node "$SCRIPT"

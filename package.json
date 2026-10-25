@@ -18,6 +18,7 @@
   },
   "bin": {
     "audit-check": ".github/actions/audit-check/audit-check.mjs",
+    "changelog-check": ".github/actions/changelog-check/changelog-check.mjs",
     "coverage-ratchet": ".github/actions/coverage-ratchet/ratchet.mjs",
     "docs-check": ".github/actions/docs-check/docs-check.mjs",
     "licence-check": ".github/actions/licence-check/licence-check.mjs",

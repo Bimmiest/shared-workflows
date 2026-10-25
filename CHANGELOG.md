@@ -7,6 +7,16 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+### Added
+
+- **`changelog-check`, an action that fails a pull request that changes
+  what a user can notice and not the changelog**
+  ([#9](https://github.com/Bimmiest/shared-workflows/issues/9)). Give it the
+  globs that need an entry in `paths`. The label `no-changelog` exempts a
+  change that no user can see. It reads the changed files through the API,
+  so it needs no checkout. On a private repository the job needs
+  `pull-requests: read`.
+
 ## 1.2.0 — 2026-10-25
 
 ### Added

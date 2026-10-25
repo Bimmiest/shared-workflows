@@ -2,7 +2,8 @@ name: PR hygiene
 
 # The branch and issue convention, enforced on this repository by its own
 # action. `edited` because fixing the description is how most failures get
-# fixed, and `labeled`/`unlabeled` because `no-issue` changes the verdict.
+# fixed, and `labeled`/`unlabeled` because `no-issue` and `no-changelog`
+# change the verdict.
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened, labeled, unlabeled]
@@ -33,3 +34,11 @@ jobs:
       # `./` rather than `$/`, for the reason ci.yml gives: actionlint does not
       # accept the self-repository syntax yet.
       - uses: ./.github/actions/pr-hygiene # zizmor: ignore[self-repository]
+
+      # What a consumer gets from a bump is the actions and the reusable
+      # workflows, so a change to those needs a CHANGELOG line (CONTRIBUTING).
+      - uses: ./.github/actions/changelog-check # zizmor: ignore[self-repository]
+        with:
+          paths: .github/actions/**,.github/workflows/security.yml,.github/workflows/workflow-lint.yml,.github/workflows/scorecard.yml
+          ignore: '**/*.test.mjs'
+
