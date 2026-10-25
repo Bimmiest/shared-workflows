@@ -52,6 +52,10 @@ gives the rule for the shape:
   the same process.
 - **An allowlist or exceptions file fails on an entry that nothing needs.**
   Thus the file cannot rot.
+- **Each script-backed action has two fixtures** in `test/fixtures/`: one
+  that must pass and one that must fail. The `actions` job in `ci.yml` runs
+  the action on both, and fails if the second one passes. A new action gets
+  its two fixtures in the same change.
 
 ## Pins
 
@@ -157,5 +161,6 @@ each consumer red.
     action.yml           the composite action
     <name>.mjs           the script that it runs, where there is one
     <name>.test.mjs      the tests of the script, which `npm test` runs
+test/fixtures/           the projects that the actions job in ci.yml runs each action on
 docs/                    the catalogue, how to consume the checks, the principles, the ADRs
 ```

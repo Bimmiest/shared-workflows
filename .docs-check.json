@@ -1,4 +1,5 @@
 {
+  "skipDirs": ["fixtures"],
   "readmeMaxLines": 200,
   "ste": ["README.md", "CONTRIBUTING.md", "CLAUDE.md", "SECURITY.md", "docs/*.md", ".github/pull_request_template.md"]
 }

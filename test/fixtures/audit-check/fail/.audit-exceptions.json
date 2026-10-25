@@ -1,0 +1,10 @@
+{
+  "exceptions": [
+    {
+      "id": "GHSA-0000-0000-0000",
+      "package": "fixture-unused",
+      "reason": "An exception that no advisory needs. The check must fail on it.",
+      "expires": "2099-01-01"
+    }
+  ]
+}

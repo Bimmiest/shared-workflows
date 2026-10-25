@@ -11,8 +11,9 @@ A consumer runs what you merge here when it bumps its pin. Thus:
 - **A check that fails on something that it passed before is a major
   version.** Say so in the CHANGELOG. A new input with a default is a minor
   version.
-- **Run a changed action from a branch of a consumer**, pinned to the SHA of
-  your branch. `npm test` proves the script, not the YAML around it.
+- **A new action gets a fixture that must pass and one that must fail**, in
+  `test/fixtures/`, and steps in the `actions` job of `ci.yml`. `npm test`
+  proves the script, not the YAML around it.
 - **Do not add a dependency to a script.** A consumer runs the scripts with
   no install. [ADR 0002](docs/adr/0002-the-repository-follows-the-template-standard-without-a-toolchain.md)
   gives the reason.
