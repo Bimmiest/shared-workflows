@@ -45,6 +45,8 @@ gives the rule for the shape:
   that a caller wrote.
 - **Each script has a `*.test.mjs` beside it**, which `node --test` runs. If
   a test does not hold a rule, the next edit can change the rule silently.
+  `npm run test:coverage` fails below the floors in `package.json`. When a
+  change adds tests, raise the floors to the new measurement, rounded down.
 - **Each failure is an `::error::` line** that says what to change. A script
   returns its exit code from one function, so that the test can measure it in
   the same process.
@@ -70,10 +72,10 @@ actionlint does not accept `$/` yet. `ci.yml` gives the detail.
   label `no-issue` to a change that is the size of a typo.
 - **Commits.** Write the subject in the imperative. In the body, say why, and
   say what the choice cost.
-- **Before you open a pull request**, run `npm test`. Then run each changed
-  action or workflow from a branch of a consumer repository, pinned to the
-  SHA of your branch. The unit tests prove the script. Only a real run proves
-  the YAML around it.
+- **Before you open a pull request**, run `npm run test:coverage`. Then run
+  each changed action or workflow from a branch of a consumer repository,
+  pinned to the SHA of your branch. The unit tests prove the script. Only a
+  real run proves the YAML around it.
 - **CHANGELOG.** Under `Unreleased`, add one line that says what a consumer
   gets from the bump.
 

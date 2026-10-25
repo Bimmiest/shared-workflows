@@ -1,6 +1,6 @@
 # 0002. The repository follows the template standard, without a toolchain
 
-- **Status:** Accepted
+- **Status:** Accepted. The coverage bullets are superseded by [0003](0003-the-scripts-have-a-coverage-floor-from-the-node-test-runner.md).
 - **Date:** 2026-10-25
 - **Issue:** [#12](https://github.com/Bimmiest/shared-workflows/issues/12)
 
