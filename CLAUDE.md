@@ -34,8 +34,9 @@ not conform, rename it, and open the pull request from the new name.
 - **Do not write a SHA or a version in an example in the documents.** Use
   `<sha> # vX.Y.Z`. An example with a real SHA is wrong after the next
   release.
-- **A release has two tags.** Tag `vx.y.z`, and move `vx` with a force push.
-  CONTRIBUTING gives the commands.
+- **Do not tag a release by hand.** Set `version` and the CHANGELOG section
+  in one pull request. `release.yml` tags, publishes and moves `vx`. A
+  release tag cannot move later, so a wrong release needs a new patch.
 
 ## Documentation
 

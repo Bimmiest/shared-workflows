@@ -1,0 +1,78 @@
+name: Release
+
+# A release is a change to `version` in package.json, merged with its
+# CHANGELOG section (#17). This job then tags `vX.Y.Z` on the merge commit,
+# publishes a GitHub Release with the CHANGELOG section as its notes, and
+# moves the major tag `vX` to the same commit. The repository makes releases
+# immutable and a ruleset refuses to move or delete a `v*.*.*` tag, so the
+# version that a consumer pins cannot change after this job
+# (docs/adr/0004).
+#
+# Before this job, a release was four commands by hand, and the force push
+# of `vX` needed a permission bypass.
+on:
+  push:
+    branches: [main]
+    paths: [package.json]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Two merges in a row must not race to the same tag.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # `contents: write` to create the tag, the release and the major tag. The
+    # job runs only on main, after review, and runs no code from a dependency.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Read the version and its CHANGELOG section
+        id: version
+        run: |
+          version=$(jq -r .version package.json)
+          awk -v heading="## $version " 'index($0, heading) == 1 { found = 1; next } found && /^## / { exit } found' CHANGELOG.md \
+            | sed -e '/./,$!d' > "$RUNNER_TEMP/notes.md"
+          if [ ! -s "$RUNNER_TEMP/notes.md" ]; then
+            echo "::error file=CHANGELOG.md::CHANGELOG.md has no '## $version — YYYY-MM-DD' section. Move Unreleased to it in the change that sets the version."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Tag, publish and move the major tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          tag="v$VERSION"
+          major="v${VERSION%%.*}"
+          if gh api "repos/$REPO/git/ref/tags/$tag" > /dev/null 2>&1; then
+            echo "::notice::$tag exists already. Nothing to release."
+            exit 0
+          fi
+
+          # An annotated tag, like the releases before this job, so that
+          # `git ls-remote ... 'refs/tags/vX.Y.Z^{}'` in docs/consuming.md
+          # gives the commit.
+          object=$(gh api "repos/$REPO/git/tags" -f tag="$tag" -f message="Release $VERSION" -f object="$SHA" -f type=commit --jq .sha)
+          gh api "repos/$REPO/git/refs" -f ref="refs/tags/$tag" -f sha="$object" > /dev/null
+          gh release create "$tag" --repo "$REPO" --verify-tag --title "$tag" --notes-file "$RUNNER_TEMP/notes.md"
+
+          if gh api "repos/$REPO/git/ref/tags/$major" > /dev/null 2>&1; then
+            gh api -X PATCH "repos/$REPO/git/refs/tags/$major" -f sha="$SHA" -F force=true > /dev/null
+          else
+            gh api "repos/$REPO/git/refs" -f ref="refs/tags/$major" -f sha="$SHA" > /dev/null
+          fi
+          echo "Released $tag at $SHA, and moved $major to it." >> "$GITHUB_STEP_SUMMARY"
