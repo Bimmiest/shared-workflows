@@ -1,31 +1,44 @@
 <!--
-Delete any section that genuinely does not apply. An empty heading left behind
-is worse than no heading.
+Delete each section that does not apply. An empty heading is worse than no
+heading.
 -->
 
 ## What and why
 
 <!--
-What changed, and the reasoning, including what it cost. A change here lands
-in every repository that bumps its pin, so say what a consumer will see.
+Say what changed and why, and what it cost. A change here goes to each
+repository that bumps its pin, so say what a consumer sees.
 -->
 
 Closes #
 
+## Decisions
+
+<!--
+Did this change settle something that stays true after the merge? Then it
+goes in `docs/adr/` as a record of its own, with a row in the index, and this
+section links to it. Delete this section if the change made no decision.
+-->
+
 ## Verification
 
 <!--
-What you ran, and what it said. "Tests pass" is a claim; the output is the
-evidence. Paste the interesting lines.
+Say what you ran, and what it said. "Tests pass" is a claim. The output is
+the evidence. Paste the important lines.
 -->
 
 - [ ] `npm test`
-- [ ] A changed action or workflow was run from a branch of a consuming repository, pinned to this branch's sha
-- [ ] `CHANGELOG.md` has an entry under `Unreleased` saying what a consumer gets from bumping
-- [ ] Every new `uses:` is `owner/action@<sha> # vX.Y.Z`
+- [ ] Each changed action or workflow ran from a branch of a consumer, pinned to the SHA of this branch
+- [ ] Each new `uses:` is `owner/action@<sha> # vX.Y.Z`
+- [ ] The documents that this change makes wrong are updated in this change, in ASD-STE100 ([CONTRIBUTING](../CONTRIBUTING.md#documentation)):
+  - `CHANGELOG.md`, under `Unreleased`, for a change that a consumer gets from the bump
+  - `docs/catalogue.md`, where an action or its inputs changed
+  - An ADR and its index row, where a decision was made
 
 ## Not done
 
 <!--
-What a reader might reasonably assume is here and is not.
+Say what a reader can expect to find here that is not here: scope that you
+left out on purpose, limits that are still true, and gaps that you know
+about.
 -->

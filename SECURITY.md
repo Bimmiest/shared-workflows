@@ -1,26 +1,43 @@
 # Security policy
 
-## Reporting a vulnerability
+## How to report a vulnerability
 
-Report privately through GitHub's [private vulnerability reporting](https://github.com/Bimmiest/shared-workflows/security/advisories/new): the **Security** tab, then **Report a vulnerability**. Please do not open a public issue for a security problem.
+Report it privately through the
+[private vulnerability reporting](https://github.com/Bimmiest/shared-workflows/security/advisories/new)
+of GitHub: open the **Security** tab, then select **Report a vulnerability**.
+Do not open a public issue for a security problem.
 
-Expect an acknowledgement within a week. If a report is valid, the fix and the advisory go out together.
+You get an acknowledgement within a week. If the report is valid, the fix
+and the advisory are published together.
 
 ## What this repository is
 
-Workflows and composite actions that other repositories run inside their own CI, with their own tokens. Nothing here runs on its own; a consumer pins a commit of this repository and executes it.
+This repository holds workflows and composite actions. Other repositories run
+them in their own CI, with their own tokens. Nothing here runs on its own. A
+consumer pins a commit of this repository, and runs it.
 
-That makes the attack surface specific:
+## In scope
 
-- **Anything that lets a pull request in a consuming repository run code with more than the permissions its job declares**: template injection through `${{ }}` in a `run:` block, a persisted credential, an action referenced by a mutable tag.
-- **A check that passes when it should fail.** The gate scripts exist to refuse things; a way to make one return green without the condition it checks for holding is a finding.
-- **A dependency of the pinned actions** this repository references (`actions/*`, `gitleaks/gitleaks-action`, `aquasecurity/trivy-action`, `zizmorcore/zizmor-action`) having a reachable vulnerability.
+- **A way for a pull request in a consumer to get more permissions than its
+  job declares.** Examples are template injection through `${{ }}` in a
+  `run:` block, a credential that stays in `.git/config`, and an action that
+  a tag references.
+- **A check that passes when it must fail.** The checks exist to refuse
+  things. A way to make a check green while its condition is false is a
+  finding.
+- **A vulnerability in an action that this repository pins**, if a consumer
+  can reach it. The pinned actions are `actions/*`,
+  `gitleaks/gitleaks-action`, `aquasecurity/trivy-action` and
+  `zizmorcore/zizmor-action`.
 
 ## Out of scope
 
-- Findings in a consuming repository's own workflow files, which are that repository's.
-- A convention this repository enforces being the wrong convention. That is an issue, not a vulnerability.
+- **Findings in the workflow files of a consumer.** They belong to that
+  repository.
+- **A convention that you think is wrong.** Open an issue for it. It is not a
+  vulnerability.
 
 ## Supported versions
 
-The newest tag on the `v1` line. Consumers pin a commit; a fix is released as a new tag and arrives through Dependabot.
+The newest tag on the `v1` line. A consumer pins a commit. A fix is released
+as a new tag, and Dependabot brings it to each consumer.

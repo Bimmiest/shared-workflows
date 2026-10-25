@@ -1,0 +1,40 @@
+name: Bug report
+description: A check or a workflow does not do what it says it does
+labels: [bug]
+body:
+  - type: input
+    id: check
+    attributes:
+      label: Which check, at which pin
+      description: The action or the workflow, and the version or SHA that the consumer pins.
+      placeholder: docs-check at v1.1.0
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened
+      description: What you saw, in one or two sentences. Paste the `::error::` lines or the log.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The smallest input and the shortest sequence of steps that show the problem. A command that runs the check on your own machine is the best reproduction.
+      placeholder: |
+        1. …
+        2. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Other information
+      description: The consumer repository, the runner, the Node version, and other facts that help to find the cause.

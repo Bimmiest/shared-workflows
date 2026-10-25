@@ -1,98 +1,125 @@
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="shared-workflows" width="100%">
+</p>
+
+<p align="center">
+  <a href="https://github.com/Bimmiest/shared-workflows/actions/workflows/ci.yml"><img src="https://github.com/Bimmiest/shared-workflows/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="https://github.com/Bimmiest/shared-workflows/tags"><img src="https://img.shields.io/github/v/tag/Bimmiest/shared-workflows?sort=semver&label=release" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-blue" alt="Licence: MIT"></a>
+</p>
+
 # shared-workflows
 
-The CI gates shared across Bimmiest repositories, as GitHub reusable workflows and composite actions. Distilled from [`propslab`](https://github.com/Bimmiest/propslab) and [`propslab-ent`](https://github.com/Bimmiest/SplunkToolkit-Ent), where each of these was first written for one repository and then wanted by the next. [`repo-template`](https://github.com/Bimmiest/repo-template) is the template repository that consumes them; start a new repository from it rather than wiring these by hand.
+The CI checks that the Bimmiest repositories share, as GitHub reusable
+workflows and composite actions.
 
-## How to consume
+## Highlights
 
-Pin a commit, with the version in a comment. Dependabot reads the comment and proposes bumps as tags are published.
+- **One place for each check.** A fix lands here one time. Each repository
+  gets the fix with its next pin bump.
+- **Each failure tells you what to change.** A check writes `::error::`
+  lines that name the file and the fix.
+- **Exceptions do not rot.** Each exception has a reason, and often an expiry.
+  A check fails on an exception that nothing needs.
+- **Pinned by content.** A consumer pins a commit SHA. Dependabot moves the
+  pin when a new release is tagged.
+- **No dependencies.** Each script is plain Node, with its test beside it.
+  You can run each check on your own machine.
+
+## Overview
+
+The checks come from the CI of
+[`propslab`](https://github.com/Bimmiest/propslab) and
+[`propslab-ent`](https://github.com/Bimmiest/SplunkToolkit-Ent). Somebody
+wrote each check for one repository, and then the next repository needed it.
+[`repo-template`](https://github.com/Bimmiest/repo-template) calls all of
+them. To start a new repository, use the template, not this repository.
+
+There are two shapes. A reusable workflow is a complete job. `security.yml`
+runs gitleaks and Trivy, and `workflow-lint.yml` runs actionlint and zizmor.
+A composite action is a step: the coverage ratchet, the advisory and licence
+checks, PR hygiene, the documentation check, the Node patch check, and the
+steps that install Node and a Playwright browser.
+[ADR 0001](docs/adr/0001-checks-are-composite-actions-pinned-by-commit.md)
+records why each check with a script is an action.
+
+The releases are on the `v1` line. A check that starts to fail on something
+that it passed before is a new major version. This repository is not a
+general catalogue of actions. It holds only the checks that a second
+Bimmiest repository runs without change.
+
+## Demo
+
+A check that fails tells you what to change. This is `docs-check` on a
+repository with a broken link, an ADR with no index row, and a long README:
+
+```console
+$ npx -y -p github:Bimmiest/shared-workflows#v1 docs-check
+::error file=docs/usage.md,line=3::`install.md` does not resolve to a file in the repository.
+::error::docs/adr/0002-b.md has no row in the index.
+::error file=README.md::README.md is 213 lines, over the limit of 200 (readmeMaxLines). Keep the fundamentals there and move the detail to docs/.
+```
+
+In a pull request, GitHub shows each `::error::` line as an annotation on the
+file that it names.
+
+## Usage
+
+Call a reusable workflow as a job, and a composite action as a step. Pin a
+commit SHA, and write the version in a comment after it. Dependabot reads the
+comment.
 
 ```yaml
-# A reusable workflow is a job.
 jobs:
   security:
-    uses: Bimmiest/shared-workflows/.github/workflows/security.yml@<sha> # v1.0.0
+    uses: Bimmiest/shared-workflows/.github/workflows/security.yml@<sha> # vX.Y.Z
     permissions:
       contents: read
       pull-requests: read
 
-# A composite action is a step.
+  verify:
+    runs-on: ubuntu-latest
     steps:
-      - uses: Bimmiest/shared-workflows/.github/actions/coverage-ratchet@<sha> # v1.0.0
+      - uses: actions/checkout@<sha> # vX.Y.Z
+        with:
+          persist-credentials: false
+      - uses: Bimmiest/shared-workflows/.github/actions/setup-node-project@<sha> # vX.Y.Z
+      - run: npm run test:coverage
+      - uses: Bimmiest/shared-workflows/.github/actions/coverage-ratchet@<sha> # vX.Y.Z
 ```
 
-Two settings on this repository make that work, and neither is a file:
+[docs/catalogue.md](docs/catalogue.md) lists each workflow and action, and
+what it needs from the caller.
 
-- This repository is public, so any repository can call its workflows and actions, private consumers included. If it were ever made private, **Settings → Actions → General → Access** would have to allow repositories owned by the same user, or a consumer's call is refused as not found.
-- **Tags** `vX.Y.Z` and a moving `vX` are published per [CONTRIBUTING](CONTRIBUTING.md#releasing). Dependabot needs the tags to see a version behind a sha.
+## Installation
 
-Composite actions run whatever `node` is on the runner's PATH, so call them after `setup-node` (or after `setup-node-project`). Node 22 or newer.
-
-## Reusable workflows
-
-| Workflow | What it gates | Caller needs |
-|---|---|---|
-| [`security.yml`](.github/workflows/security.yml) | gitleaks over the whole history; Trivy over the tree for vulnerabilities and misconfiguration (CRITICAL and HIGH, unfixed ignored, `.trivyignore.yaml` honoured when present) | `permissions: contents: read, pull-requests: read`; its own `schedule`, because both go red without a push |
-| [`workflow-lint.yml`](.github/workflows/workflow-lint.yml) | actionlint and zizmor over the caller's `.github/` | a runner with Go and shellcheck (`ubuntu-latest`) |
-
-Both take `runs-on` as a JSON array (default `["ubuntu-latest"]`) so a self-hosted label set can be passed. Neither puts its jobs in a container; a repository on a persistent runner that needs the job-container recipe keeps that job in its own workflow, as `propslab-ent`'s `ci.yml` does.
-
-## Composite actions
-
-| Action | What it does | Reads |
-|---|---|---|
-| [`setup-node-project`](.github/actions/setup-node-project/action.yml) | Node from `.nvmrc`, the npm cache, `npm ci --ignore-scripts` | `.nvmrc`, the lockfile |
-| [`playwright-browser`](.github/actions/playwright-browser/action.yml) | one browser, cached on the resolved Playwright version, system packages installed either way | `@playwright/test` |
-| [`coverage-ratchet`](.github/actions/coverage-ratchet/action.yml) | fails when a vitest coverage floor sits more than `slack` points under its measurement, per-glob floors included; prints the block to write | `vitest.config.ts`, `coverage/coverage-summary.json` |
-| [`audit-check`](.github/actions/audit-check/action.yml) | `npm audit --omit=dev` gated at `high`, with an exceptions file whose entries carry a reason and an expiry; an expired or unneeded entry fails | `.audit-exceptions.json` |
-| [`licence-check`](.github/actions/licence-check/action.yml) | every production dependency's licence is on the allowlist, read from the lockfile's `license` fields, no install | `.licence-allowlist.json`, `package-lock.json` |
-| [`pr-hygiene`](.github/actions/pr-hygiene/action.yml) | the branch is `<type>/<short-description>-<issue>` and the description links the issue; `no-issue` label and `dependabot[bot]` exempt | the `pull_request` event |
-| [`docs-check`](.github/actions/docs-check/action.yml) | relative Markdown links resolve; the ADR index matches `docs/adr/`, is in order, and explains numbering gaps; root `LICENSE-*` files are in the README; with `readmeMaxLines` in its config, the README stays within that many lines | the Markdown tree, optional `.docs-check.json` |
-| [`node-patch-check`](.github/actions/node-patch-check/action.yml) | `.nvmrc` is the newest patch of its Node line, asked of nodejs.org; `warn-only` on pull requests | `.nvmrc` |
-| [`open-or-update-issue`](.github/actions/open-or-update-issue/action.yml) | one open issue per label for a scheduled check, commented on while the finding persists | `issues: write` |
-
-Each `action.yml` documents its inputs. The scripts behind them are plain Node with no dependencies; each has a `*.test.mjs` beside it.
-
-### Running a check locally
-
-The scripts take the same arguments the actions pass. Either clone this repository beside the project:
-
-```bash
-node ../shared-workflows/.github/actions/coverage-ratchet/ratchet.mjs --config vitest.config.ts
-```
-
-or run one through npx from the tag you are pinned to:
+CI needs no installation: GitHub gets the commit that you pin. To run a check
+on your own machine, use npx with the tag of your pin:
 
 ```bash
 npx -y -p github:Bimmiest/shared-workflows#v1 coverage-ratchet --config vitest.config.ts
 ```
 
-The `bin` names are `audit-check`, `coverage-ratchet`, `docs-check`, `licence-check`, `node-patch-check` and `pr-hygiene`.
+Requirements: Node 22 or later. [docs/consuming.md](docs/consuming.md) tells
+you how to run a check from a clone, and how to update a pin.
 
-## The principles these encode
+## Documentation
 
-Each gate here came out of a specific failure in one of the source repositories, and the comments in the YAML and the scripts cite the issue. The rules they share:
+| Document | What it holds |
+|---|---|
+| [docs/catalogue.md](docs/catalogue.md) | Each workflow and action: what it checks, what it reads, and what the caller gives it |
+| [docs/consuming.md](docs/consuming.md) | How to pin, call and update the checks, and how to run them on your own machine |
+| [docs/principles.md](docs/principles.md) | The rules that all the checks follow, and why |
+| [docs/adr/](docs/adr/README.md) | The decisions, and why we made them |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to change a check, test it and release it |
+| [CHANGELOG.md](CHANGELOG.md) | What a consumer gets from each release, newest first |
+| [SECURITY.md](SECURITY.md) | How to report a vulnerability, and what is in scope |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | The Contributor Covenant, enforced through the security contact |
 
-- **A floor is a ratchet, and both pawls are enforced.** Never lower one to make a branch green; when the measurement rises past the floor, CI fails until the floor is raised to match.
-- **An exception sits beside its reason**, often with an expiry, and an exception nothing needs any more fails the check, so the list cannot rot.
-- **A gate has to be one people act on.** Production dependencies gate; dev-only advisories are reported. Fixed vulnerabilities gate; unfixed ones are Dependabot's. A secret in history always gates, because the remedy is to rotate it whatever the confidence.
-- **Everything executed in CI is pinned by content**: actions by sha, images by digest, with the human-readable version in a comment Dependabot maintains.
-- **Untrusted text reaches a shell only through the environment.** A pull request's body and branch name, and an action's inputs, are never pasted into a `run:` block.
-- **The schedule is not decoration.** Security and supply-chain checks go red without a push, so they run weekly on their own.
+## Contributing and feedback
 
-## Repository layout
-
-```
-.github/
-  workflows/
-    security.yml         reusable
-    workflow-lint.yml    reusable
-    ci.yml               this repository's own gates (runs the two above against itself)
-    pr-hygiene.yml       this repository's own, using the action below
-  actions/<name>/
-    action.yml           the composite action
-    <name>.mjs           the script it runs, where there is one
-    <name>.test.mjs      its tests, run by `npm test`
-```
+To report a bug or to suggest a change, open an issue. Before you open a pull
+request, read [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Licence
 

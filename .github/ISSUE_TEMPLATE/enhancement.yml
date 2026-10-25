@@ -1,0 +1,23 @@
+name: Enhancement
+description: Something new that it must do, or something that it must do differently
+labels: [enhancement]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What you want
+      description: The change, as a user sees it.
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Why
+      description: The problem that the change solves, or the use that it makes possible. The issue is where people argue about the reason, while the change is still cheap.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Other information
+      description: The alternatives that you examined, similar work, and the constraints.
