@@ -1,0 +1,9 @@
+{
+  "name": "fixture-project",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A project for the action fixtures in ci.yml. ms is a small MIT package with no dependencies.",
+  "dependencies": {
+    "ms": "2.1.3"
+  }
+}

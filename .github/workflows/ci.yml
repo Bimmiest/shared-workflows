@@ -56,6 +56,98 @@ jobs:
         with:
           warn-only: ${{ github.event_name == 'pull_request' }}
 
+  # Each script-backed action against a fixture in test/fixtures/ that must
+  # pass and one that must fail (#18). The unit tests prove the scripts. This
+  # proves the action.yml around them: the paths, the inputs and the
+  # environment. A path that breaks also fails the fixture that must pass.
+  #
+  # Not here: pr-hygiene reads the pull_request event, and pr-hygiene.yml runs
+  # it on every pull request. playwright-browser needs @playwright/test
+  # installed, and open-or-update-issue writes issues.
+  actions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Installs Node and the fixture project, so it is also the Node that the
+      # other actions run on.
+      - name: setup-node-project
+        uses: ./.github/actions/setup-node-project # zizmor: ignore[self-repository]
+        with:
+          cache-dependency-path: test/fixtures/project/package-lock.json
+          working-directory: test/fixtures/project
+
+      - name: coverage-ratchet
+        uses: ./.github/actions/coverage-ratchet # zizmor: ignore[self-repository]
+        with:
+          working-directory: test/fixtures/coverage-ratchet/pass
+
+      - name: audit-check
+        uses: ./.github/actions/audit-check # zizmor: ignore[self-repository]
+        with:
+          working-directory: test/fixtures/project
+
+      - name: licence-check
+        uses: ./.github/actions/licence-check # zizmor: ignore[self-repository]
+        with:
+          working-directory: test/fixtures/project
+
+      - name: coverage-ratchet (must fail)
+        id: coverage-ratchet
+        continue-on-error: true
+        uses: ./.github/actions/coverage-ratchet # zizmor: ignore[self-repository]
+        with:
+          working-directory: test/fixtures/coverage-ratchet/fail
+
+      - name: audit-check (must fail)
+        id: audit-check
+        continue-on-error: true
+        uses: ./.github/actions/audit-check # zizmor: ignore[self-repository]
+        with:
+          working-directory: test/fixtures/audit-check/fail
+
+      - name: licence-check (must fail)
+        id: licence-check
+        continue-on-error: true
+        uses: ./.github/actions/licence-check # zizmor: ignore[self-repository]
+        with:
+          working-directory: test/fixtures/licence-check/fail
+
+      - name: docs-check (must fail)
+        id: docs-check
+        continue-on-error: true
+        uses: ./.github/actions/docs-check # zizmor: ignore[self-repository]
+        with:
+          working-directory: test/fixtures/docs-check/fail
+
+      - name: node-patch-check (must fail)
+        id: node-patch-check
+        continue-on-error: true
+        uses: ./.github/actions/node-patch-check # zizmor: ignore[self-repository]
+        with:
+          working-directory: test/fixtures/node-patch-check/fail
+
+      # `outcome` is the result before continue-on-error turns it green.
+      - name: Each fixture that must fail failed
+        env:
+          COVERAGE_RATCHET: ${{ steps.coverage-ratchet.outcome }}
+          AUDIT_CHECK: ${{ steps.audit-check.outcome }}
+          LICENCE_CHECK: ${{ steps.licence-check.outcome }}
+          DOCS_CHECK: ${{ steps.docs-check.outcome }}
+          NODE_PATCH_CHECK: ${{ steps.node-patch-check.outcome }}
+        run: |
+          status=0
+          for name in COVERAGE_RATCHET AUDIT_CHECK LICENCE_CHECK DOCS_CHECK NODE_PATCH_CHECK; do
+            if [ "${!name}" != failure ]; then
+              echo "::error::The fixture for ${name} that must fail ended in '${!name}'."
+              status=1
+            fi
+          done
+          exit "$status"
+
   workflow-lint:
     uses: ./.github/workflows/workflow-lint.yml # zizmor: ignore[self-repository]
 
