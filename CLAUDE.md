@@ -1,0 +1,48 @@
+# CLAUDE.md
+
+The conventions are in [CONTRIBUTING.md](./CONTRIBUTING.md). Read it before
+your first change. This file does not summarise it. It names the rules that
+people break, and the rules where a mistake is expensive and not obvious.
+
+## Each change reaches each consumer
+
+A consumer runs what you merge here when it bumps its pin. Thus:
+
+- **A check that fails on something that it passed before is a major
+  version.** Say so in the CHANGELOG. A new input with a default is a minor
+  version.
+- **Run a changed action from a branch of a consumer**, pinned to the SHA of
+  your branch. `npm test` proves the script, not the YAML around it.
+- **Do not add a dependency to a script.** A consumer runs the scripts with
+  no install. [ADR 0002](docs/adr/0002-the-repository-follows-the-template-standard-without-a-toolchain.md)
+  gives the reason.
+
+## Before you write code
+
+**Open an issue first** for each change that is larger than a typo. The
+branch is `<type>/<short-description>-<issue-number>`, and CI refuses a pull
+request that breaks the pattern. If your session got a branch name that does
+not conform, rename it, and open the pull request from the new name.
+
+## Expensive to get wrong
+
+- **Do not put `${{ }}` in a `run:` block.** The inputs of an action and the
+  text of a pull request get to a shell through `env:`.
+- **Pin each `uses:` to a full SHA, with `# vX.Y.Z` after it.** In this
+  repository, call its own actions with `./`, not `$/`.
+- **Do not write a SHA or a version in an example in the documents.** Use
+  `<sha> # vX.Y.Z`. An example with a real SHA is wrong after the next
+  release.
+- **A release has two tags.** Tag `vx.y.z`, and move `vx` with a force push.
+  CONTRIBUTING gives the commands.
+
+## Documentation
+
+Write all documentation in ASD-STE100. Keep the README to the fundamentals,
+in a maximum of 200 lines. Put the detail in `docs/`. When you add an action
+or change its inputs, update `docs/catalogue.md` in the same change.
+
+## Not in this file
+
+This file has no status, no plan and no test counts. Status goes in issues.
+Keep this file to one screen.
