@@ -1,0 +1,4 @@
+# Linguist does not count files under .github/, and every script here is
+# there. With no language detected, CodeQL default setup refuses to analyse
+# JavaScript (#14).
+.github/actions/**/*.mjs linguist-detectable linguist-vendored=false
