@@ -56,12 +56,16 @@ const LINK = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs?)\b:?\s+#(\d+)\b/g
  */
 export function linkedIssues(body) {
   // Until nothing changes, because one pass turns `<!<!---->-- x -->` into a
-  // new comment. An unclosed `<!--` hides the rest, as GitHub renders it.
+  // new comment. Then an unclosed `<!--` that starts a line hides the rest,
+  // as GitHub renders it. In the middle of a line it is text.
+  // shortcut: a `<!--` at the start of a line in a fenced code block also
+  // hides the rest; strip code first if a description ever needs one.
   let visible = body ?? '';
   for (let previous; visible !== previous; ) {
     previous = visible;
-    visible = visible.replace(/<!--[\s\S]*?(?:-->|$)/g, '');
+    visible = visible.replace(/<!--[\s\S]*?-->/g, '');
   }
+  visible = visible.replace(/(^|\n) {0,3}<!--[\s\S]*/, '$1');
   return [...visible.matchAll(LINK)].map((match) => Number(match[1]));
 }
 

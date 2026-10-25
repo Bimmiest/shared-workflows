@@ -32,9 +32,13 @@ describe('linkedIssues', () => {
     assert.deepEqual(linkedIssues('<!-- Closes #99 -->\nSee #7 and Closes #8'), [8]);
   });
 
-  it('ignores a link that is still in a comment after one pass, or after an unclosed comment', () => {
+  it('ignores a link that is still in a comment after one pass, or after an unclosed comment that starts a line', () => {
     assert.deepEqual(linkedIssues('<!<!---->-- Closes #1 -->\nCloses #2'), [2]);
     assert.deepEqual(linkedIssues('Closes #2\n<!-- Closes #1'), [2]);
+  });
+
+  it('reads past an unclosed comment in the middle of a line, which GitHub shows as text', () => {
+    assert.deepEqual(linkedIssues('An unclosed `<!--` is text.\n\nCloses #23'), [23]);
   });
 
   it('is empty for no body', () => {
