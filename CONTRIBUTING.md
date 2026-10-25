@@ -155,6 +155,7 @@ each consumer red.
   workflows/
     security.yml         reusable
     workflow-lint.yml    reusable
+    scorecard.yml        reusable
     ci.yml               the gates of this repository, which run the two above on it
     pr-hygiene.yml       the PR hygiene of this repository, from the action below
   actions/<name>/

@@ -151,6 +151,19 @@ jobs:
   workflow-lint:
     uses: ./.github/workflows/workflow-lint.yml # zizmor: ignore[self-repository]
 
+  # Published from main and the schedule only. On a pull request it scores
+  # the branch, which proves the workflow is callable, and publishes nothing.
+  scorecard:
+    uses: ./.github/workflows/scorecard.yml # zizmor: ignore[self-repository]
+    with:
+      publish-results: ${{ github.event_name == 'push' || github.event_name == 'schedule' }}
+      upload-sarif: ${{ github.event_name == 'push' || github.event_name == 'schedule' }}
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      security-events: write
+
   security:
     uses: ./.github/workflows/security.yml # zizmor: ignore[self-repository]
     permissions:

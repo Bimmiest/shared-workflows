@@ -36,7 +36,8 @@ wrote each check for one repository, and then the next repository needed it.
 them. To start a new repository, use the template, not this repository.
 
 There are two shapes. A reusable workflow is a complete job. `security.yml`
-runs gitleaks and Trivy, and `workflow-lint.yml` runs actionlint and zizmor.
+runs gitleaks and Trivy, `workflow-lint.yml` runs actionlint and zizmor, and
+`scorecard.yml` runs OpenSSF Scorecard.
 A composite action is a step: the coverage ratchet, the advisory and licence
 checks, PR hygiene, the documentation check, the Node patch check, and the
 steps that install Node and a Playwright browser.

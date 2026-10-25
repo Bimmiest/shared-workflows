@@ -47,8 +47,10 @@ versions in one repository give two sets of rules.
   Call it after `actions/setup-node` or `setup-node-project`. Node 22 or
   later.
 - **Permissions.** The caller job gives the permissions. `security.yml` needs
-  `contents: read` and `pull-requests: read`. `open-or-update-issue` needs
-  `issues: write`. The other checks need only `contents: read`.
+  `contents: read` and `pull-requests: read`. `scorecard.yml` needs
+  `contents: read`, `actions: read`, `id-token: write` and
+  `security-events: write`. `open-or-update-issue` needs `issues: write`. The
+  other checks need only `contents: read`.
 - **A schedule.** Security and supply-chain checks can fail with no push. Run
   them each week, or each month for `node-patch-check`.
 - **The files that a check reads.** [catalogue.md](catalogue.md) names them.
