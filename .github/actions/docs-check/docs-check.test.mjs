@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
-import { adrProblems, brokenLinks, gapNotes, indexRows, licenceProblems, links, readmeLengthProblem, resolveTarget, run, stripCode } from './docs-check.mjs';
+import { adrProblems, brokenLinks, gapNotes, indexRows, licenceProblems, links, readmeLengthProblem, resolveTarget, run, steWarnings, stripCode } from './docs-check.mjs';
 
 describe('stripCode', () => {
   it('blanks fenced blocks and inline spans, keeping line numbers', () => {
@@ -136,6 +136,34 @@ describe('readmeLengthProblem', () => {
   });
 });
 
+describe('steWarnings', () => {
+  it('finds each word that STE does not allow, on its line', () => {
+    const text = 'You should run it.\nIt may fail, or it might.\nThat would help.\nTools, e.g. npm, i.e. this, etc.\nDon\'t do it. It\'s late, and they\'re here.\nOne; two.\n';
+    assert.deepEqual(
+      steWarnings(text).map(({ line, word }) => `${line}:${word}`),
+      ['1:should', '2:may', '2:might', '3:would', '4:e.g.', '4:i.e.', '4:etc.', "5:Don't", "5:It's", "5:they're", '6:;'],
+    );
+  });
+
+  it('ignores code, comments, tags, entities, URLs and possessives', () => {
+    const text = [
+      'Run `npm test; it should pass`.',
+      '```bash',
+      'a; b # would',
+      '```',
+      '<!-- This may change. -->',
+      '<img alt="x" src="a;b">',
+      'Tom &amp; Jerry, [link](https://x.test/should;may) and https://y.test/a;b.',
+      "GitHub's README is the maintainers' file.",
+    ].join('\n');
+    assert.deepEqual(steWarnings(text), []);
+  });
+
+  it('gives the advice for the word', () => {
+    assert.match(steWarnings('It should.')[0].advice, /"must"/);
+  });
+});
+
 describe('run', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'docs-check-'));
   mkdirSync(path.join(root, 'docs/adr'), { recursive: true });
@@ -174,5 +202,31 @@ describe('run', () => {
     const { code, lines } = run(root, { config: { ...config, readmeMaxLines: 2 } });
     assert.equal(code, 1);
     assert.deepEqual(lines, ['::error file=README.md::README.md is 3 lines, over the limit of 2 (readmeMaxLines). Keep the fundamentals there and move the detail to docs/.']);
+  });
+
+  it('warns on STE words in the files that ste names, and still passes', () => {
+    const ste = mkdtempSync(path.join(tmpdir(), 'docs-check-ste-'));
+    mkdirSync(path.join(ste, 'docs/adr'), { recursive: true });
+    writeFileSync(path.join(ste, 'README.md'), '# Repo\n\nIt works.\n');
+    writeFileSync(path.join(ste, 'docs/guide.md'), '# Guide\n');
+    writeFileSync(path.join(ste, 'docs/adr/0001-first.md'), '# 1. First\n\nIt should stay, because a record does not change.\n');
+    writeFileSync(path.join(ste, 'docs/adr/README.md'), '| # | Decision | Status |\n|---|---|---|\n| [0001](0001-first.md) | First | Accepted |\n');
+    assert.doesNotMatch(run(ste).lines.join('\n'), /STE/, 'unset: not checked');
+    const clean = run(ste, { config: { ste: ['README.md', 'docs/*.md'] } });
+    assert.equal(clean.code, 0);
+    assert.match(clean.lines.at(-1), /, the STE word check read 2 files and warned on 0\.$/, 'docs/*.md does not reach docs/adr/');
+    writeFileSync(path.join(ste, 'README.md'), '# Repo\n\nIt may work.\n');
+    const warned = run(ste, { config: { ste: ['README.md'] } });
+    assert.equal(warned.code, 0);
+    assert.deepEqual(warned.lines.slice(0, 1), ['::warning file=README.md,line=3::"may" is not ASD-STE100. Write "can" for a possibility, or "must" for an obligation.']);
+    assert.match(warned.lines.at(-1), /the STE word check read 1 file and warned on 1\.$/);
+  });
+
+  it('refuses an ste that is not a list of globs, so a typo cannot switch the check off', () => {
+    for (const bad of ['README.md', [], [1], null]) {
+      const { code, lines } = run(root, { config: { skipDirs: ['docs'], ste: bad } });
+      assert.equal(code, 1);
+      assert.match(lines[0], /^::error::ste must be a list of globs/);
+    }
   });
 });
