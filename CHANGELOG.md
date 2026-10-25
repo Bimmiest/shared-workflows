@@ -1,10 +1,17 @@
 # Changelog
 
-All notable changes to the shared workflows and actions, newest first. Entries say what a consuming repository gets from bumping its pin.
+The changes to the shared workflows and actions, newest first. Each entry
+says what a consumer gets when it bumps its pin.
 
 ---
 
 ## Unreleased
+
+### Changed
+
+- **`workflow-lint.yml` runs zizmor through `zizmor-action` 0.7.1**
+  ([#6](https://github.com/Bimmiest/shared-workflows/pull/6)). The zizmor
+  version stays at the `zizmor-version` input, 1.30.1 by default.
 
 ## 1.1.0 — 2026-10-25
 
