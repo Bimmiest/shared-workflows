@@ -32,6 +32,11 @@ describe('linkedIssues', () => {
     assert.deepEqual(linkedIssues('<!-- Closes #99 -->\nSee #7 and Closes #8'), [8]);
   });
 
+  it('ignores a link that is still in a comment after one pass, or after an unclosed comment', () => {
+    assert.deepEqual(linkedIssues('<!<!---->-- Closes #1 -->\nCloses #2'), [2]);
+    assert.deepEqual(linkedIssues('Closes #2\n<!-- Closes #1'), [2]);
+  });
+
   it('is empty for no body', () => {
     assert.deepEqual(linkedIssues(undefined), []);
   });

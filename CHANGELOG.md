@@ -7,6 +7,13 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+### Fixed
+
+- **`pr-hygiene` counts only the links that a reader sees**
+  ([#23](https://github.com/Bimmiest/shared-workflows/issues/23)). Before,
+  a description could pass with a link that GitHub hides: in a comment that
+  one pass of the filter made, or after an unclosed `<!--`. CodeQL found it.
+
 ### Changed
 
 - **`workflow-lint.yml` runs zizmor through `zizmor-action` 0.7.1**

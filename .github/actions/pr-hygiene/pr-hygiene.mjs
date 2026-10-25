@@ -55,7 +55,13 @@ const LINK = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs?)\b:?\s+#(\d+)\b/g
  * link the author made.
  */
 export function linkedIssues(body) {
-  const visible = (body ?? '').replace(/<!--[\s\S]*?-->/g, '');
+  // Until nothing changes, because one pass turns `<!<!---->-- x -->` into a
+  // new comment. An unclosed `<!--` hides the rest, as GitHub renders it.
+  let visible = body ?? '';
+  for (let previous; visible !== previous; ) {
+    previous = visible;
+    visible = visible.replace(/<!--[\s\S]*?(?:-->|$)/g, '');
+  }
   return [...visible.matchAll(LINK)].map((match) => Number(match[1]));
 }
 
