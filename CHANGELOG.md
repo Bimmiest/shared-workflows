@@ -9,6 +9,13 @@ says what a consumer gets when it bumps its pin.
 
 ### Added
 
+- **`scorecard.yml`, a reusable workflow for OpenSSF Scorecard**
+  ([#15](https://github.com/Bimmiest/shared-workflows/issues/15)). Call it
+  weekly and on push to `main`. It publishes the result for the README badge
+  and uploads the findings to code scanning. It reports and does not fail.
+  [docs/catalogue.md](docs/catalogue.md) lists the permissions and the limits
+  of the caller workflow.
+
 - **`docs-check` warns on words that ASD-STE100 does not allow**
   ([#20](https://github.com/Bimmiest/shared-workflows/issues/20)). Name the
   files in `.docs-check.json`, for example

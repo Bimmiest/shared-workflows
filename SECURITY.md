@@ -27,7 +27,8 @@ consumer pins a commit of this repository, and runs it.
   finding.
 - **A vulnerability in an action that this repository pins**, if a consumer
   can reach it. The pinned actions are `actions/*`,
-  `gitleaks/gitleaks-action`, `aquasecurity/trivy-action` and
+  `github/codeql-action`, `gitleaks/gitleaks-action`,
+  `aquasecurity/trivy-action`, `ossf/scorecard-action` and
   `zizmorcore/zizmor-action`.
 
 ## Out of scope

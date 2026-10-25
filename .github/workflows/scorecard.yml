@@ -1,0 +1,79 @@
+name: Scorecard
+
+# Reusable: OpenSSF Scorecard, which checks what zizmor cannot see (#15):
+# branch protection, token permissions, pinned dependencies across the
+# repository, code review, and the other Scorecard checks. Call it from a
+# workflow of its own, on a weekly schedule and on push to main, because the
+# score changes with repository settings and with no commit.
+#
+#   jobs:
+#     scorecard:
+#       uses: Bimmiest/shared-workflows/.github/workflows/scorecard.yml@<sha> # vX.Y.Z
+#       permissions:
+#         contents: read
+#         actions: read
+#         id-token: write
+#         security-events: write
+#
+# Scorecard publishes a result only from a job of `uses:` steps from its
+# approved list, with no `env`, no `defaults`, no container and no write
+# permission at the top of the workflow. The caller workflow has the same
+# limits at its top level. A private repository never publishes, and on the
+# GitHub Free plan it cannot upload SARIF, so a private caller sets both
+# inputs to false and reads the artifact.
+on:
+  workflow_call:
+    inputs:
+      publish-results:
+        description: >-
+          Publish the result to the OpenSSF API, which the README badge reads.
+          Scorecard ignores it for a private repository.
+        type: boolean
+        default: true
+      upload-sarif:
+        description: Upload the findings to code scanning. Needs code scanning on the repository.
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  scorecard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # `id-token: write` signs the published result, and `security-events:
+    # write` uploads the SARIF. `actions: read` lets the checks read the
+    # workflow runs of a private repository.
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # GITHUB_TOKEN reads rulesets, which is how each Bimmiest repository
+      # protects main. Classic branch protection would need a token with
+      # admin read access, passed as repo_token.
+      - name: Score the repository
+        uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e # v2.5.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: ${{ inputs.publish-results }}
+
+      - name: Keep the result as an artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: scorecard
+          path: results.sarif
+          retention-days: 7
+
+      - name: Upload the findings to code scanning
+        if: inputs.upload-sarif
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          sarif_file: results.sarif

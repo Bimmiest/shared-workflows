@@ -12,10 +12,12 @@ A reusable workflow is a job. Call it under `jobs:` with `uses:`.
 |---|---|---|
 | [`security.yml`](../.github/workflows/security.yml) | gitleaks scans the full history for secrets. Trivy scans the tree for vulnerabilities and misconfiguration, at CRITICAL and HIGH. Trivy ignores a vulnerability that has no fix, and reads `.trivyignore.yaml` if the file exists. | `permissions: contents: read, pull-requests: read`. A `schedule` of its own, because both checks can fail with no push. |
 | [`workflow-lint.yml`](../.github/workflows/workflow-lint.yml) | actionlint and zizmor read the `.github/` directory of the caller. | A runner with Go and shellcheck. `ubuntu-latest` has both. |
+| [`scorecard.yml`](../.github/workflows/scorecard.yml) | OpenSSF Scorecard checks branch protection, token permissions, pinned dependencies, code review and the other Scorecard checks. It publishes the result for the badge, and uploads the findings to code scanning. It reports and does not fail. | `permissions: contents: read, actions: read, id-token: write, security-events: write`. A workflow of its own, on `push` to `main` and a weekly `schedule`, with no top-level `env`, `defaults` or write permission. A private repository sets `publish-results` and `upload-sarif` to `false`. |
 
-Both workflows take `runs-on` as a JSON array, with the default
-`["ubuntu-latest"]`. Thus a caller can give the labels of a self-hosted
-runner. Neither workflow puts its jobs in a container. A repository on a
+`security.yml` and `workflow-lint.yml` take `runs-on` as a JSON array, with
+the default `["ubuntu-latest"]`. Thus a caller can give the labels of a
+self-hosted runner. `scorecard.yml` does not: Scorecard publishes only from a
+runner that GitHub hosts. No workflow puts its jobs in a container. A repository on a
 persistent runner that needs a job container keeps that job in its own
 workflow. The `ci.yml` of `propslab-ent` is an example.
 
