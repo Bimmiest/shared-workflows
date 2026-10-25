@@ -7,6 +7,8 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+## 1.3.0 — 2026-10-25
+
 ### Added
 
 - **`changelog-check`, an action that fails a pull request that changes
