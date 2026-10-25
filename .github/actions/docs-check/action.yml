@@ -2,15 +2,15 @@ name: Docs check
 description: >-
   The documentation facts a reviewer cannot be trusted to notice: every
   relative Markdown link resolves, the ADR index agrees with the ADR directory
-  and is in order, every gap in the ADR numbering is explained, and every root
-  `LICENSE-*` file is linked from the README. Needs Node on the PATH and no
-  install.
+  and is in order, every gap in the ADR numbering is explained, every root
+  `LICENSE-*` file is linked from the README, and (when the config asks) the
+  README stays within a line limit. Needs Node on the PATH and no install.
 inputs:
   adr-dir:
     description: The directory of `NNNN-*.md` records with a `README.md` index. Skipped when it does not exist.
     default: docs/adr
   config:
-    description: Optional JSON with `skipDirs` and `knownDeadLinks` (`{ file, target, reason }`, ADR records only).
+    description: Optional JSON with `skipDirs`, `knownDeadLinks` (`{ file, target, reason }`, ADR records only) and `readmeMaxLines` (a positive whole number; unset means no limit).
     default: .docs-check.json
   working-directory:
     description: The repository root to check.

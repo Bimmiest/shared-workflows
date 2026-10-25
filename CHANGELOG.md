@@ -6,6 +6,12 @@ All notable changes to the shared workflows and actions, newest first. Entries s
 
 ## Unreleased
 
+## 1.1.0 — 2026-10-25
+
+### Added
+
+- **`docs-check` can hold the README to a line limit** ([#7](https://github.com/Bimmiest/shared-workflows/issues/7)). Set `"readmeMaxLines": 200` in `.docs-check.json`, and a README over that fails with its length and the limit. Unset, nothing is checked, so no consumer changes on the bump. A value that is not a positive whole number fails rather than switching the check off.
+
 ## 1.0.1 — 2026-10-25
 
 ### Fixed

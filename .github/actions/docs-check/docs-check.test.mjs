@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
-import { adrProblems, brokenLinks, gapNotes, indexRows, licenceProblems, links, resolveTarget, run, stripCode } from './docs-check.mjs';
+import { adrProblems, brokenLinks, gapNotes, indexRows, licenceProblems, links, readmeLengthProblem, resolveTarget, run, stripCode } from './docs-check.mjs';
 
 describe('stripCode', () => {
   it('blanks fenced blocks and inline spans, keeping line numbers', () => {
@@ -125,6 +125,17 @@ describe('licenceProblems', () => {
   });
 });
 
+describe('readmeLengthProblem', () => {
+  it('counts lines without the trailing newline, and passes at the limit', () => {
+    assert.equal(readmeLengthProblem('a\nb\nc\n', 3), null);
+    assert.match(readmeLengthProblem('a\nb\nc\nd\n', 3), /^README\.md is 4 lines, over the limit of 3 \(readmeMaxLines\)/);
+  });
+
+  it('refuses a limit that is not a positive whole number, so a typo cannot switch the check off', () => {
+    for (const bad of [0, -5, 2.5, '200', null]) assert.match(readmeLengthProblem('a\n', bad), /must be a positive whole number/);
+  });
+});
+
 describe('run', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'docs-check-'));
   mkdirSync(path.join(root, 'docs/adr'), { recursive: true });
@@ -154,5 +165,14 @@ describe('run', () => {
     assert.match(skipped.lines[0], /^1 Markdown files: every relative link resolves, the ADR index is complete and in order, every root licence/);
     const { lines } = run(root, { adrDir: 'nowhere', config: { skipDirs: ['docs'] } });
     assert.match(lines[0], /^1 Markdown files: every relative link resolves, every root licence is in the README\./);
+  });
+
+  it('holds the README to readmeMaxLines only when the config sets it', () => {
+    const config = { skipDirs: ['docs'] };
+    assert.doesNotMatch(run(root, { config }).lines[0], /lines/, 'unset: not checked');
+    assert.match(run(root, { config: { ...config, readmeMaxLines: 3 } }).lines[0], /the README is within 3 lines\.$/);
+    const { code, lines } = run(root, { config: { ...config, readmeMaxLines: 2 } });
+    assert.equal(code, 1);
+    assert.deepEqual(lines, ['::error file=README.md::README.md is 3 lines, over the limit of 2 (readmeMaxLines). Keep the fundamentals there and move the detail to docs/.']);
   });
 });

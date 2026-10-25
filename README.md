@@ -46,7 +46,7 @@ Both take `runs-on` as a JSON array (default `["ubuntu-latest"]`) so a self-host
 | [`audit-check`](.github/actions/audit-check/action.yml) | `npm audit --omit=dev` gated at `high`, with an exceptions file whose entries carry a reason and an expiry; an expired or unneeded entry fails | `.audit-exceptions.json` |
 | [`licence-check`](.github/actions/licence-check/action.yml) | every production dependency's licence is on the allowlist, read from the lockfile's `license` fields, no install | `.licence-allowlist.json`, `package-lock.json` |
 | [`pr-hygiene`](.github/actions/pr-hygiene/action.yml) | the branch is `<type>/<short-description>-<issue>` and the description links the issue; `no-issue` label and `dependabot[bot]` exempt | the `pull_request` event |
-| [`docs-check`](.github/actions/docs-check/action.yml) | relative Markdown links resolve; the ADR index matches `docs/adr/`, is in order, and explains numbering gaps; root `LICENSE-*` files are in the README | the Markdown tree, optional `.docs-check.json` |
+| [`docs-check`](.github/actions/docs-check/action.yml) | relative Markdown links resolve; the ADR index matches `docs/adr/`, is in order, and explains numbering gaps; root `LICENSE-*` files are in the README; with `readmeMaxLines` in its config, the README stays within that many lines | the Markdown tree, optional `.docs-check.json` |
 | [`node-patch-check`](.github/actions/node-patch-check/action.yml) | `.nvmrc` is the newest patch of its Node line, asked of nodejs.org; `warn-only` on pull requests | `.nvmrc` |
 | [`open-or-update-issue`](.github/actions/open-or-update-issue/action.yml) | one open issue per label for a scheduled check, commented on while the finding persists | `issues: write` |
 
