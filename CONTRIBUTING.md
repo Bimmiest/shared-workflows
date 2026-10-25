@@ -95,10 +95,11 @@ main rules:
   text. A maximum of six sentences in a paragraph.
 - Use the active voice, and the imperative for an instruction.
 - Do not use "-ing" forms, except in technical names.
-- Use "must", "can" and "do not". Do not use "should", "may", "might" or
-  "would".
-- Do not use phrasal verbs, contractions, semicolons in prose, or "e.g.",
-  "i.e." and "etc.".
+- Use "must", "can" and "do not". Do not use `should`, `may`, `might` or
+  `would`.
+- Do not use phrasal verbs, contractions, semicolons in prose, or `e.g.`,
+  `i.e.` and `etc.`. The docs check warns on these words in the files that
+  `ste` names in `.docs-check.json`.
 - Do not change code, commands, file names or product names.
 
 **The README keeps to the fundamentals, in a maximum of 200 lines.** The

@@ -1,3 +1,4 @@
 {
-  "readmeMaxLines": 200
+  "readmeMaxLines": 200,
+  "ste": ["README.md", "CONTRIBUTING.md", "CLAUDE.md", "SECURITY.md", "docs/*.md", ".github/pull_request_template.md"]
 }

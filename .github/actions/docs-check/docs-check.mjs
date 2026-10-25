@@ -16,6 +16,9 @@
  *      licence section is where a reader learns what they may redistribute.
  *   5. When the config sets `readmeMaxLines`, the root README is no longer
  *      than that: it keeps the fundamentals, and the detail lives in docs/.
+ *   6. When the config sets `ste`, the files it names get a warning for each
+ *      word that ASD-STE100 does not allow (#20). A warning, never a failure:
+ *      a word list cannot judge a sentence.
  *
  *   node docs-check.mjs [--root .] [--adr-dir docs/adr] [--config .docs-check.json]
  *
@@ -23,7 +26,8 @@
  *
  *   { "skipDirs": ["generated"],
  *     "knownDeadLinks": [ { "file": "docs/adr/0007-x.md", "target": "./0006-y.md", "reason": "…" } ],
- *     "readmeMaxLines": 200 }
+ *     "readmeMaxLines": 200,
+ *     "ste": ["README.md", "docs/*.md"] }
  *
  * Anchors are not checked, only the file a link names: a heading's slug is
  * the renderer's to decide, and a check that disagreed with GitHub's would be
@@ -246,6 +250,45 @@ export function readmeLengthProblem(readme, max) {
   return `README.md is ${lines} lines, over the limit of ${max} (readmeMaxLines). Keep the fundamentals there and move the detail to docs/.`;
 }
 
+/**
+ * The words that ASD-STE100 does not allow, each with what to write instead.
+ * Only the clear cases: a word that STE allows in one sense and not in
+ * another ("may" the month, "close" the verb) would make every warning noise.
+ */
+export const STE_RULES = [
+  [/\bshould\b/gi, 'Write "must" for an obligation, or "can" for a possibility.'],
+  [/\b(?:may|might)\b/gi, 'Write "can" for a possibility, or "must" for an obligation.'],
+  [/\bwould\b/gi, 'Write the simple present or the future: "is", "will".'],
+  [/\b(?:e\.g\.|i\.e\.|etc\b\.?)/gi, 'Write "for example", "that is", or the complete list.'],
+  [/\b(?:\w+n['’]t|\w+['’](?:re|ve|ll|m|d)|(?:it|that|there|here|what|let)['’]s)\b/gi, 'Write the two words in full.'],
+  [/;/g, 'Write two sentences, or a list.'],
+];
+
+/**
+ * The prose of a Markdown text, line count kept: code, HTML comments and
+ * tags, entities and URLs are blanked, because none of them is text that STE
+ * governs.
+ */
+export function prose(text) {
+  const blank = (match) => match.replace(/[^\n]/g, ' ');
+  return stripCode(text)
+    .replace(/<!--[\s\S]*?(?:-->|$)/g, blank)
+    .replace(/<[^>\n]+>|&#?\w+;|\]\([^)\n]*\)|\bhttps?:\/\/\S+/g, blank);
+}
+
+/** Every word in `text` that ASD-STE100 does not allow, as `{ line, word, advice }`. */
+export function steWarnings(text) {
+  const found = [];
+  prose(text)
+    .split('\n')
+    .forEach((line, index) => {
+      for (const [pattern, advice] of STE_RULES) {
+        for (const match of line.matchAll(pattern)) found.push({ line: index + 1, word: match[0], advice });
+      }
+    });
+  return found.sort((a, b) => a.line - b.line);
+}
+
 /** The lines to print and the exit code, for the repository at `root`. */
 export function run(root, { adrDir = 'docs/adr', config = {} } = {}) {
   const exists = (relative) => {
@@ -284,8 +327,22 @@ export function run(root, { adrDir = 'docs/adr', config = {} } = {}) {
       else summary.push(`the README is within ${config.readmeMaxLines} lines`);
     }
   }
-  if (problems.length === 0) return { lines: [`${summary.join(', ')}.`], code: 0 };
-  return { lines: problems, code: 1 };
+  const warnings = [];
+  if (config.ste !== undefined) {
+    if (!Array.isArray(config.ste) || config.ste.length === 0 || !config.ste.every((glob) => typeof glob === 'string')) {
+      problems.push(`::error::ste must be a list of globs, not ${JSON.stringify(config.ste)}.`);
+    } else {
+      const named = files.filter(({ file }) => config.ste.some((glob) => path.matchesGlob(file, glob)));
+      for (const { file, text } of named) {
+        for (const { line, word, advice } of steWarnings(text)) {
+          warnings.push(`::warning file=${file},line=${line}::"${word}" is not ASD-STE100. ${advice}`);
+        }
+      }
+      summary.push(`the STE word check read ${named.length} file${named.length === 1 ? '' : 's'} and warned on ${warnings.length}`);
+    }
+  }
+  if (problems.length === 0) return { lines: [...warnings, `${summary.join(', ')}.`], code: 0 };
+  return { lines: [...problems, ...warnings], code: 1 };
 }
 
 function main() {

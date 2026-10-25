@@ -7,6 +7,16 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+### Added
+
+- **`docs-check` warns on words that ASD-STE100 does not allow**
+  ([#20](https://github.com/Bimmiest/shared-workflows/issues/20)). Name the
+  files in `.docs-check.json`, for example
+  `"ste": ["README.md", "docs/*.md"]`. Each `should`, `may`, `might`,
+  `would`, `e.g.`, `i.e.`, `etc.`, contraction and semicolon in prose gets a
+  warning with what to write instead. Code, comments and URLs are not read.
+  The check never fails, and it is off when `ste` is not set.
+
 ### Fixed
 
 - **`pr-hygiene` counts only the links that a reader sees**
