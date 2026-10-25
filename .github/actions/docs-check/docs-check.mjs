@@ -14,13 +14,16 @@
  *      number named there has no file, so the note cannot outlive its reason.
  *   4. Every `LICENSE-*` file at the root is linked from the README, whose
  *      licence section is where a reader learns what they may redistribute.
+ *   5. When the config sets `readmeMaxLines`, the root README is no longer
+ *      than that: it keeps the fundamentals, and the detail lives in docs/.
  *
  *   node docs-check.mjs [--root .] [--adr-dir docs/adr] [--config .docs-check.json]
  *
  * The optional config:
  *
  *   { "skipDirs": ["generated"],
- *     "knownDeadLinks": [ { "file": "docs/adr/0007-x.md", "target": "./0006-y.md", "reason": "…" } ] }
+ *     "knownDeadLinks": [ { "file": "docs/adr/0007-x.md", "target": "./0006-y.md", "reason": "…" } ],
+ *     "readmeMaxLines": 200 }
  *
  * Anchors are not checked, only the file a link names: a heading's slug is
  * the renderer's to decide, and a check that disagreed with GitHub's would be
@@ -231,6 +234,18 @@ export function licenceProblems(rootNames, readme) {
     .map((name) => `README.md links no \`${name}\`. Add it to the licence section, with what it covers and what it obliges.`);
 }
 
+/**
+ * Why the README breaks the configured line limit, or null when it keeps to
+ * it. A limit that is not a positive whole number is itself the problem, so a
+ * typo in the config cannot turn the check off.
+ */
+export function readmeLengthProblem(readme, max) {
+  if (!Number.isInteger(max) || max < 1) return `readmeMaxLines must be a positive whole number, not ${JSON.stringify(max)}.`;
+  const lines = readme.replace(/\n$/, '').split('\n').length;
+  if (lines <= max) return null;
+  return `README.md is ${lines} lines, over the limit of ${max} (readmeMaxLines). Keep the fundamentals there and move the detail to docs/.`;
+}
+
 /** The lines to print and the exit code, for the repository at `root`. */
 export function run(root, { adrDir = 'docs/adr', config = {} } = {}) {
   const exists = (relative) => {
@@ -263,6 +278,11 @@ export function run(root, { adrDir = 'docs/adr', config = {} } = {}) {
   if (exists('README.md')) {
     problems.push(...licenceProblems(readdirSync(root), readFileSync(path.join(root, 'README.md'), 'utf8')).map((p) => `::error::${p}`));
     summary.push('every root licence is in the README');
+    if (config.readmeMaxLines !== undefined) {
+      const tooLong = readmeLengthProblem(readFileSync(path.join(root, 'README.md'), 'utf8'), config.readmeMaxLines);
+      if (tooLong) problems.push(`::error file=README.md::${tooLong}`);
+      else summary.push(`the README is within ${config.readmeMaxLines} lines`);
+    }
   }
   if (problems.length === 0) return { lines: [`${summary.join(', ')}.`], code: 0 };
   return { lines: problems, code: 1 };
