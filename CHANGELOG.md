@@ -16,6 +16,15 @@ says what a consumer gets when it bumps its pin.
   [docs/catalogue.md](docs/catalogue.md) lists the permissions and the limits
   of the caller workflow.
 
+- **`repo-settings-check`, an action that compares the repository settings
+  with the template checklist**
+  ([#16](https://github.com/Bimmiest/shared-workflows/issues/16)). A template
+  copies files, not settings, so a setting drifts with no commit. Run it
+  weekly with a fine-grained token that has "Administration: read". Name the
+  required checks of `main` in `.repo-settings.json`, and give each
+  exception a reason, for example a private repository on the Free plan,
+  which has no rulesets.
+
 - **`docs-check` warns on words that ASD-STE100 does not allow**
   ([#20](https://github.com/Bimmiest/shared-workflows/issues/20)). Name the
   files in `.docs-check.json`, for example

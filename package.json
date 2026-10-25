@@ -22,6 +22,7 @@
     "docs-check": ".github/actions/docs-check/docs-check.mjs",
     "licence-check": ".github/actions/licence-check/licence-check.mjs",
     "node-patch-check": ".github/actions/node-patch-check/node-patch.mjs",
-    "pr-hygiene": ".github/actions/pr-hygiene/pr-hygiene.mjs"
+    "pr-hygiene": ".github/actions/pr-hygiene/pr-hygiene.mjs",
+    "repo-settings-check": ".github/actions/repo-settings-check/repo-settings-check.mjs"
   }
 }

@@ -39,8 +39,9 @@ There are two shapes. A reusable workflow is a complete job. `security.yml`
 runs gitleaks and Trivy, `workflow-lint.yml` runs actionlint and zizmor, and
 `scorecard.yml` runs OpenSSF Scorecard.
 A composite action is a step: the coverage ratchet, the advisory and licence
-checks, PR hygiene, the documentation check, the Node patch check, and the
-steps that install Node and a Playwright browser.
+checks, PR hygiene, the documentation check, the Node patch check, the
+repository settings check, and the steps that install Node and a Playwright
+browser.
 [ADR 0001](docs/adr/0001-checks-are-composite-actions-pinned-by-commit.md)
 records why each check with a script is an action.
 

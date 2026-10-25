@@ -1,0 +1,35 @@
+name: Repository settings check
+description: >-
+  Fails when a repository setting differs from the repo-template checklist:
+  the merge methods and the squash body, branch deletion, the wiki, the
+  Actions permissions and SHA pinning, fork approval, private vulnerability
+  reporting, Dependabot alerts, secret scanning and push protection, and the
+  ruleset on main. A setting that the token cannot read fails. Needs Node on
+  the PATH and no install.
+inputs:
+  token:
+    description: >-
+      A fine-grained token with "Administration: read" on the repository.
+      GITHUB_TOKEN cannot read most of these settings, so pass a secret.
+    required: true
+  config:
+    description: Optional JSON with `requiredChecks` (the check names that the main ruleset must require) and `exceptions` (`{ setting, reason }`).
+    default: .repo-settings.json
+  repository:
+    description: The repository to check, as owner/name.
+    default: ${{ github.repository }}
+  working-directory:
+    description: The directory that holds the config.
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: Repository settings match the template
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        REPO: ${{ inputs.repository }}
+        CONFIG: ${{ inputs.config }}
+        SCRIPT: ${{ github.action_path }}/repo-settings-check.mjs
+      run: node "$SCRIPT" --repo "$REPO" --config "$CONFIG"

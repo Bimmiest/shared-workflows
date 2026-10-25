@@ -40,6 +40,7 @@ the `PATH` of the runner, and they need Node 22 or later.
 | [`pr-hygiene`](../.github/actions/pr-hygiene/action.yml) | Fails when the branch is not `<type>/<short-description>-<issue>`, or the description does not link the issue. The `no-issue` label and `dependabot[bot]` are exempt. | The `pull_request` event |
 | [`docs-check`](../.github/actions/docs-check/action.yml) | Fails on a relative Markdown link that does not resolve. Fails when the ADR index does not agree with `docs/adr/`, is not in order, or does not explain a gap. Fails when a root `LICENSE-*` file is not in the README. With `readmeMaxLines`, fails on a longer README. With `ste`, warns on each word that ASD-STE100 does not allow, in the files that `ste` names. | The Markdown files, `.docs-check.json` if it exists |
 | [`node-patch-check`](../.github/actions/node-patch-check/action.yml) | Fails when `.nvmrc` is not the newest patch of its Node line. It asks nodejs.org. Use `warn-only` on a pull request. | `.nvmrc` |
+| [`repo-settings-check`](../.github/actions/repo-settings-check/action.yml) | Fails when a repository setting differs from the checklist of `repo-template`: the merge methods and the squash body, branch deletion, the wiki, the Actions permissions and SHA pinning, fork approval, private vulnerability reporting, Dependabot alerts, secret scanning, push protection, and the ruleset on `main`. A setting that the token cannot read fails. Each exception has a reason, and an exception that nothing needs fails. | A `token` with "Administration: read", `.repo-settings.json` if it exists |
 | [`open-or-update-issue`](../.github/actions/open-or-update-issue/action.yml) | Keeps one open issue for each label, for a scheduled check. While the finding stays, it adds a comment to the issue. | The job needs `issues: write` |
 
 ## Inputs that callers change
@@ -51,12 +52,14 @@ the `PATH` of the runner, and they need Node 22 or later.
 | `audit-check` | `level` | `high` | Not usually. The level is the same in each repository on purpose. |
 | `pr-hygiene` | `types` | `feature,fix,refactor,docs,ci,chore` | The repository uses a different list of branch types. |
 | `node-patch-check` | `warn-only` | `false` | Set it to `true` on a pull request, so that a Node release does not block an unrelated change. |
+| `repo-settings-check` | `token` | none | Always. GITHUB_TOKEN cannot read most of the settings. Pass a secret, for example `SETTINGS_READ_TOKEN`. |
 | all script actions | `working-directory` | `.` | The project is in a subdirectory. |
 
 ## The commands behind the actions
 
-Six actions run a script that is also a command. `npm` installs these `bin`
-names: `audit-check`, `coverage-ratchet`, `docs-check`, `licence-check`,
-`node-patch-check` and `pr-hygiene`. The arguments of a command are the same
+Seven actions run a script that is also a command. `npm` installs these
+`bin` names: `audit-check`, `coverage-ratchet`, `docs-check`,
+`licence-check`, `node-patch-check`, `pr-hygiene` and
+`repo-settings-check`. The arguments of a command are the same
 as the arguments that the action gives. [consuming.md](consuming.md) tells you
 how to run them.
