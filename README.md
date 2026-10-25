@@ -5,6 +5,7 @@
 <p align="center">
   <a href="https://github.com/Bimmiest/shared-workflows/actions/workflows/ci.yml"><img src="https://github.com/Bimmiest/shared-workflows/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <a href="https://github.com/Bimmiest/shared-workflows/tags"><img src="https://img.shields.io/github/v/tag/Bimmiest/shared-workflows?sort=semver&label=release" alt="Latest release"></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/Bimmiest/shared-workflows"><img src="https://api.scorecard.dev/projects/github.com/Bimmiest/shared-workflows/badge" alt="OpenSSF Scorecard"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-blue" alt="Licence: MIT"></a>
 </p>
 
