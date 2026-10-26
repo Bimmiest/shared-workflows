@@ -38,6 +38,13 @@ not conform, rename it, and open the pull request from the new name.
   in one pull request. `release.yml` tags, publishes and moves `vx`. A
   release tag cannot move later, so a wrong release needs a new patch.
 
+## Code comments
+
+Follow [the rules](./CONTRIBUTING.md#code-comments). A comment says why, for
+the code as it is now. For history, link the issue or the ADR. No lint checks
+them here, so check your own diff for code in a comment and a TODO with no
+issue.
+
 ## Documentation
 
 Write all documentation in ASD-STE100. Keep the README to the fundamentals,
