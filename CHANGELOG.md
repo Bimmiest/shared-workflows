@@ -7,6 +7,8 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+## 1.3.1 — 2026-10-26
+
 ### Fixed
 
 - **`repo-settings-check` reads the merge settings with a read-only token**
