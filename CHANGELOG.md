@@ -7,6 +7,15 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+### Fixed
+
+- **`repo-settings-check` reads the merge settings with a read-only token**
+  ([#42](https://github.com/Bimmiest/shared-workflows/issues/42)). Before,
+  the three `merge.*` settings failed as "could not be read" with a token
+  that has "Administration: read". GET /repos gives them only to a token
+  with "Contents: write". The check now reads them from GraphQL, which
+  needs only read access. The token stays the same.
+
 ## 1.3.0 — 2026-10-25
 
 ### Added

@@ -6,15 +6,20 @@ const UNREADABLE = 'Give the token "Administration: read", or, if the plan does 
 
 /** The answers of a repository that matches the template, as readState returns them. */
 const good = () => ({
+  merge: {
+    ok: true,
+    value: {
+      squashMergeAllowed: true,
+      mergeCommitAllowed: false,
+      rebaseMergeAllowed: false,
+      squashMergeCommitTitle: 'COMMIT_OR_PR_TITLE',
+      squashMergeCommitMessage: 'COMMIT_MESSAGES',
+      deleteBranchOnMerge: true,
+    },
+  },
   repository: {
     ok: true,
     value: {
-      allow_squash_merge: true,
-      allow_merge_commit: false,
-      allow_rebase_merge: false,
-      squash_merge_commit_title: 'COMMIT_OR_PR_TITLE',
-      squash_merge_commit_message: 'COMMIT_MESSAGES',
-      delete_branch_on_merge: true,
       has_wiki: false,
       security_and_analysis: { secret_scanning: { status: 'enabled' }, secret_scanning_push_protection: { status: 'enabled' } },
     },
@@ -45,7 +50,7 @@ describe('check', () => {
   it('names each wrong setting and what to change', () => {
     const state = good();
     state.repository.value.has_wiki = true;
-    state.repository.value.allow_rebase_merge = true;
+    state.merge.value.rebaseMergeAllowed = true;
     state.workflow.value.default_workflow_permissions = 'write';
     state.alerts.value = false;
     state.rules.value = state.rules.value.filter((rule) => rule.type !== 'non_fast_forward');
@@ -73,14 +78,17 @@ describe('check', () => {
 
   it('fails a setting that the token cannot read, and says which permission is missing', () => {
     const state = good();
-    // What GET /repos answers a token without admin access: no merge settings.
+    // What GET /repos answers a token without admin access: no security_and_analysis.
     state.repository.value = { has_wiki: false };
+    // What GraphQL answers for a field that the token cannot read.
+    state.merge.value.deleteBranchOnMerge = null;
     state.rules = { ok: false, status: 403, reason: 'Upgrade to GitHub Pro or make this repository public to enable this feature.' };
     const { code, lines } = check(state);
     assert.equal(code, 1);
-    assert.ok(lines.includes(`::error::merge.squash-only could not be read: the answer has no value for it. ${UNREADABLE}`));
+    assert.ok(lines.includes(`::error::security.secret-scanning could not be read: the answer has no value for it. ${UNREADABLE}`));
+    assert.ok(lines.includes(`::error::merge.delete-branch could not be read: the answer has no value for it. ${UNREADABLE}`));
     assert.ok(lines.includes(`::error::main.pull-request could not be read: /rules/branches/main answered HTTP 403 (Upgrade to GitHub Pro or make this repository public to enable this feature.). ${UNREADABLE}`));
-    assert.ok(!lines.some((line) => line.includes('wiki.off')), 'a setting that it can read is still judged');
+    assert.ok(!lines.some((line) => line.includes('wiki.off') || line.includes('merge.squash-only')), 'a setting that it can read is still judged');
   });
 
   it('accepts an exception with a reason, and fails one that nothing needs', () => {
@@ -110,9 +118,11 @@ describe('readState', () => {
     const asked = [];
     const state = await readState(async (suffix) => {
       asked.push(suffix);
+      if (suffix === SOURCES.merge) return { status: 200, body: { data: { repository: { deleteBranchOnMerge: true } } } };
       return suffix === SOURCES.alerts ? { status: 204, body: null } : { status: 200, body: { suffix } };
     });
     assert.deepEqual(asked.sort(), Object.values(SOURCES).sort());
+    assert.deepEqual(state.merge, { ok: true, value: { deleteBranchOnMerge: true } });
     assert.deepEqual(state.alerts, { ok: true, value: true });
     assert.deepEqual(state.rules, { ok: true, value: { suffix: '/rules/branches/main' } });
   });
@@ -123,5 +133,12 @@ describe('readState', () => {
     assert.deepEqual((await readState(answering({ [SOURCES.fork]: { status: 403 } }))).fork, { ok: false, status: 403 });
     const refused = { status: 422, body: { message: 'Validation Failed', errors: 'Fork PR approval is not allowed for private repositories.' } };
     assert.deepEqual((await readState(answering({ [SOURCES.fork]: refused }))).fork, { ok: false, status: 422, reason: 'Validation Failed: Fork PR approval is not allowed for private repositories.' });
+  });
+
+  it('reads a GraphQL answer with no repository as unreadable, with the reason', async () => {
+    const missing = { status: 200, body: { data: { repository: null }, errors: [{ type: 'NOT_FOUND', message: "Could not resolve to a Repository with the name 'o/r'." }] } };
+    assert.deepEqual((await readState(answering({ [SOURCES.merge]: missing }))).merge, { ok: false, status: 200, reason: "Could not resolve to a Repository with the name 'o/r'." });
+    const refused = { status: 401, body: { message: 'Bad credentials' } };
+    assert.deepEqual((await readState(answering({ [SOURCES.merge]: refused }))).merge, { ok: false, status: 401, reason: 'Bad credentials' });
   });
 });
