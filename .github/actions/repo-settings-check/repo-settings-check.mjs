@@ -12,6 +12,9 @@
  * passes a fine-grained token. A setting that the token cannot read fails:
  * a check that cannot see the answer has verified nothing.
  *
+ * The merge settings come from GraphQL. GET /repos gives them only to a
+ * token with "Contents: write", and a settings check must not push (#42).
+ *
  * The optional config:
  *
  *   { "requiredChecks": ["verify", "audit"],
@@ -29,6 +32,7 @@ import { pathToFileURL } from 'node:url';
 /** Each endpoint the settings are read from, by the name that SETTINGS uses. */
 export const SOURCES = {
   repository: '',
+  merge: 'GraphQL',
   actions: '/actions/permissions',
   workflow: '/actions/permissions/workflow',
   fork: '/actions/permissions/fork-pr-contributor-approval',
@@ -49,18 +53,18 @@ const requiredContexts = (rules) =>
  */
 export const SETTINGS = {
   'merge.squash-only': {
-    source: 'repository',
-    test: (r) => (r.allow_squash_merge === undefined ? undefined : r.allow_squash_merge === true && r.allow_merge_commit === false && r.allow_rebase_merge === false),
+    source: 'merge',
+    test: (m) => (m.squashMergeAllowed == null ? undefined : m.squashMergeAllowed === true && m.mergeCommitAllowed === false && m.rebaseMergeAllowed === false),
     fix: 'Allow squash merges only, in Settings, General, Pull requests.',
   },
   'merge.squash-body': {
-    source: 'repository',
-    test: (r) => (r.squash_merge_commit_message === undefined ? undefined : r.squash_merge_commit_title === 'COMMIT_OR_PR_TITLE' && r.squash_merge_commit_message === 'COMMIT_MESSAGES'),
+    source: 'merge',
+    test: (m) => (m.squashMergeCommitMessage == null ? undefined : m.squashMergeCommitTitle === 'COMMIT_OR_PR_TITLE' && m.squashMergeCommitMessage === 'COMMIT_MESSAGES'),
     fix: 'Make the default squash commit the commit title and the commit messages of the branch.',
   },
   'merge.delete-branch': {
-    source: 'repository',
-    test: (r) => (r.delete_branch_on_merge === undefined ? undefined : r.delete_branch_on_merge === true),
+    source: 'merge',
+    test: (m) => (m.deleteBranchOnMerge == null ? undefined : m.deleteBranchOnMerge === true),
     fix: 'Delete the head branch after a merge.',
   },
   'wiki.off': {
@@ -141,11 +145,21 @@ async function read(get, source) {
   // GitHub's own reason, which tells a missing permission from a plan that
   // does not offer the setting ("Upgrade to GitHub Pro or make this
   // repository public").
-  const reason = [body?.message, typeof body?.errors === 'string' ? body.errors : null].filter(Boolean).join(': ');
+  // GraphQL gives its errors as a list, with HTTP 200.
+  const errors = Array.isArray(body?.errors) ? body.errors.map((error) => error?.message).filter(Boolean).join(' ') : body?.errors;
+  const reason = [body?.message, typeof errors === 'string' ? errors : null].filter(Boolean).join(': ');
   const failed = { ok: false, status, ...(reason ? { reason } : {}) };
+  if (source === 'merge') return status === 200 && body?.data?.repository ? { ok: true, value: body.data.repository } : failed;
   if (source === 'alerts') return status === 204 ? { ok: true, value: true } : status === 404 ? { ok: true, value: false } : failed;
   return status === 200 ? { ok: true, value: body } : failed;
 }
+
+/** The merge settings, which GraphQL gives to a token with read access. */
+export const MERGE_QUERY = `query($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    squashMergeAllowed mergeCommitAllowed rebaseMergeAllowed squashMergeCommitTitle squashMergeCommitMessage deleteBranchOnMerge
+  }
+}`;
 
 /** What to do about a setting that cannot be read. */
 const UNREADABLE = 'Give the token "Administration: read", or, if the plan does not offer the setting on this repository, add an exception with the reason.';
@@ -212,10 +226,14 @@ async function main() {
     return 1;
   }
   const api = process.env.GITHUB_API_URL ?? 'https://api.github.com';
+  const graphql = process.env.GITHUB_GRAPHQL_URL ?? 'https://api.github.com/graphql';
+  const [owner, name] = values.repo.split('/');
+  const headers = { accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28', authorization: `Bearer ${token}` };
   const get = async (suffix) => {
-    const response = await fetch(`${api}/repos/${values.repo}${suffix}`, {
-      headers: { accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28', authorization: `Bearer ${token}` },
-    });
+    const response =
+      suffix === SOURCES.merge
+        ? await fetch(graphql, { method: 'POST', headers, body: JSON.stringify({ query: MERGE_QUERY, variables: { owner, name } }) })
+        : await fetch(`${api}/repos/${values.repo}${suffix}`, { headers });
     return { status: response.status, body: response.status === 204 ? null : await response.json().catch(() => null) };
   };
   const config = existsSync(values.config) ? JSON.parse(readFileSync(values.config, 'utf8')) : {};
