@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
-import { adrProblems, brokenLinks, frontmatterType, gapNotes, indexRows, lengthProblems, licenceProblems, links, readmeLengthProblem, resolveTarget, run, steWarnings, stripCode, typeProblems } from './docs-check.mjs';
+import { adrProblems, brokenLinks, frontmatterType, gapNotes, indexProblems, indexRows, lengthProblems, licenceProblems, links, readmeLengthProblem, resolveTarget, run, steWarnings, stripCode, typeProblems } from './docs-check.mjs';
 
 describe('stripCode', () => {
   it('blanks fenced blocks and inline spans, keeping line numbers', () => {
@@ -231,6 +231,42 @@ describe('typeProblems', () => {
     const result = lengthProblems([{ file: 'docs/a.md', text: typed('how-to') + 'x\n'.repeat(5) }, { file: 'docs/b.md', text: typed('reference') + 'x\n'.repeat(5) }], rules, [], '2026-10-28');
     assert.deepEqual(result.map((p) => p.file), ['docs/a.md']);
     assert.match(result[0].problem, /over the limit of 3 for type how-to \(maxLines\)/);
+  });
+});
+
+describe('indexProblems', () => {
+  const config = { file: 'docs/README.md', glob: 'docs/**/*.md', exclude: ['docs/adr/[0-9]*.md'] };
+  const files = (index) => [
+    { file: 'README.md', text: '# R\n' },
+    { file: 'docs/README.md', text: index },
+    { file: 'docs/adr/0001-x.md', text: '# 1\n' },
+    { file: 'docs/adr/README.md', text: '# ADRs\n' },
+    { file: 'docs/ci.md', text: '# CI\n' },
+    { file: 'docs/design/README.md', text: '# D\n' },
+  ];
+  const table = (...targets) => `# Docs\n\n| Document | Holds |\n|---|---|\n${targets.map((t) => `| [${t}](${t}) | x |`).join('\n')}\n`;
+
+  it('passes an index with one row for each file, less the excluded ones, in path order', () => {
+    const result = indexProblems(files(table('adr/README.md', 'ci.md', 'design/README.md')), config);
+    assert.deepEqual([...result], []);
+    assert.equal(result.listed, 3);
+  });
+
+  it('names the row to add, in the form to write, for a file that has none', () => {
+    const [problem] = indexProblems(files(table('adr/README.md', 'design/README.md')), config);
+    assert.equal(problem.problem, 'docs/README.md has no row for docs/ci.md. Add "| [ci.md](ci.md) | what it holds |" in path order.');
+  });
+
+  it('fails a row out of path order, a second row for a file, and a row for a file that it does not list', () => {
+    const problems = indexProblems(files(table('ci.md', 'adr/README.md', 'ci.md', 'adr/0001-x.md', 'design/README.md')), config).map((p) => p.problem);
+    assert.match(problems[0], /:6: adr\/README\.md comes after ci\.md\. Keep the rows in path order\./);
+    assert.match(problems[1], /:7: ci\.md has a second row\. Remove it\./);
+    assert.match(problems[2], /:8: the row links adr\/0001-x\.md, which is not a file that docsIndex lists/);
+  });
+
+  it('fails a missing index file or a malformed config rather than skipping the check', () => {
+    assert.match(indexProblems([{ file: 'docs/ci.md', text: '' }], config)[0].problem, /^docsIndex names docs\/README\.md, which does not exist/);
+    for (const bad of [undefined, {}, { file: 'docs/README.md', glob: 'docs/**', exclude: 'x' }]) assert.match(indexProblems([], bad)[0].problem, /^docsIndex must be/);
   });
 });
 

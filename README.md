@@ -108,22 +108,13 @@ you how to run a check from a clone, and how to update a pin.
 
 ## Documentation
 
-| Document | What it holds |
-|---|---|
-| [docs/catalogue.md](docs/catalogue.md) | Each workflow and action: what it checks, what it reads, and what the caller gives it |
-| [docs/consuming.md](docs/consuming.md) | How to pin, call and update the checks, and how to run them on your own machine |
-| [docs/principles.md](docs/principles.md) | The rules that all the checks follow, and why |
-| [docs/adr/](docs/adr/README.md) | The decisions, and why we made them |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | The rules: what belongs here, branches and pull requests, documentation and releases |
-| [docs/development.md](docs/development.md) | How to run the tests, try a change in a consumer, and the layout of the repository |
-| [docs/ci.md](docs/ci.md) | Each workflow of this repository, and what makes it fail |
-| [docs/testing.md](docs/testing.md) | The rules for the tests and the fixtures |
-| [docs/code-style.md](docs/code-style.md) | The rules for the scripts and the code comments |
-| [docs/dependencies.md](docs/dependencies.md) | Why there are no npm dependencies, and how each `uses:` is pinned |
-| [docs/documentation.md](docs/documentation.md) | Where each text goes, the line limits, the topic types and the STE rules |
-| [CHANGELOG.md](CHANGELOG.md) | What a consumer gets from each release, newest first |
-| [SECURITY.md](SECURITY.md) | How to report a vulnerability, and what is in scope |
-| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | The Contributor Covenant, enforced through the security contact |
+The topic files are listed in [docs/README.md](docs/README.md). The documents
+at the root:
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — The rules: what belongs here, branches and pull requests, documentation and releases
+- [CHANGELOG.md](CHANGELOG.md) — What a consumer gets from each release, newest first
+- [SECURITY.md](SECURITY.md) — How to report a vulnerability, and what is in scope
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — The Contributor Covenant, enforced through the security contact
 
 ## Contributing and feedback
 

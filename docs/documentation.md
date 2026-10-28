@@ -44,6 +44,16 @@ repository adds other topic files for its own areas. A recipe, a trap or a
 troubleshooting step goes in the topic file of its area, not in
 `CONTRIBUTING.md`. If a topic file gets to its limit, split it by subtopic.
 
+## The index
+
+`docs/README.md` lists each topic file in `docs/`, with one row for each
+file, in path order. GitHub shows it when a reader opens `docs/`. When you
+add, rename or remove a topic file, change its row there, and only there.
+The docs check fails a file that has no row, a row that has no file, and a
+row out of order (`docsIndex` in `.docs-check.json`). The documents at the
+root (`CONTRIBUTING.md`, `CHANGELOG.md`, `SECURITY.md` and
+`CODE_OF_CONDUCT.md`) are listed in the README.
+
 ## ASD-STE100
 
 Write each new or changed text in ASD-STE100 Simplified Technical English
@@ -67,5 +77,5 @@ Contributor Covenant. The main rules:
 
 **The README keeps to the fundamentals, in a maximum of 200 lines.** The
 docs check enforces the limit, from `.docs-check.json`. Put each topic that
-needs more than a few lines in `docs/`, and link it from the Documentation
-table of the README. Do not use a wiki.
+needs more than a few lines in `docs/`, and give it a row in the index,
+`docs/README.md`. Do not use a wiki.
