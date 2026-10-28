@@ -1,6 +1,6 @@
 {
   "name": "@bimmiest/shared-workflows",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "private": true,
   "description": "Reusable GitHub Actions workflows and composite actions: the CI gates shared across Bimmiest repositories.",
   "license": "MIT",
