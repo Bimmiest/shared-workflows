@@ -7,6 +7,20 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+## 1.6.0 — 2026-10-28
+
+### Added
+
+- **`docs-check` can hold an index of `docs/` to the files**
+  ([#55](https://github.com/Bimmiest/shared-workflows/issues/55)). Set
+  `docsIndex` to `{ file, glob, exclude }`, for example
+  `docs/README.md` for every `docs/**/*.md` less the ADR records. The index
+  must have one table row that links each file, and no other, in path
+  order (case-insensitive). The failure gives the row to add, remove or
+  move. The index is the one place to list the topic files, so a README
+  table is no longer needed. Nothing changes until a repository sets
+  `docsIndex`.
+
 ## 1.5.0 — 2026-10-28
 
 ### Added

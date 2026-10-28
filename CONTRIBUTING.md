@@ -98,6 +98,7 @@ the types and the STE rules. In short:
 | `CHANGELOG.md`, under `Unreleased` | A consumer gets something from the bump |
 | `docs/catalogue.md` | An action or a workflow is added, or its inputs or its verdict change |
 | `README.md` | The shape of the repository changes |
+| `docs/README.md` | A topic file is added, renamed or removed |
 | `docs/adr/` | A decision stays true after the pull request: add a record **and** its index row |
 | `SECURITY.md` | The attack surface changes |
 | `CLAUDE.md` | People start to break a rule, or a mistake is expensive and not obvious |

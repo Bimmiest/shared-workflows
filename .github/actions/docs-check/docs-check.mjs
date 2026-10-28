@@ -27,6 +27,9 @@
  *      YAML frontmatter whose `type` is one it allows (#51). A path says what
  *      a root file is for; only the file can say what a topic file is for.
  *      A `maxLines` rule can match on that `type` as well as on a glob.
+ *   9. When the config sets `docsIndex`, its index file has one table row for
+ *      each file it names, and no other, in path order (#55). The index is the
+ *      one place a reader finds the topic files, so a file with no row is lost.
  *
  *   node docs-check.mjs [--root .] [--adr-dir docs/adr] [--config .docs-check.json]
  *
@@ -40,7 +43,8 @@
  *                   { "glob": "CONTRIBUTING.md", "max": 300, "hint": "Keep the rules here; move recipes to docs/." },
  *                   { "glob": "**\/*.md", "max": 500 } ],
  *     "maxLinesExceptions": [ { "file": "docs/big.md", "max": 900, "reason": "…", "issue": "#12", "expires": "2027-01-31" } ],
- *     "docTypes": { "glob": "docs/**\/*.md", "exclude": ["docs/adr/**"], "allowed": ["how-to", "reference"] } }
+ *     "docTypes": { "glob": "docs/**\/*.md", "exclude": ["docs/adr/**"], "allowed": ["how-to", "reference"] },
+ *     "docsIndex": { "file": "docs/README.md", "glob": "docs/**\/*.md", "exclude": ["docs/adr/[0-9]*.md"] } }
  *
  * Anchors are not checked, only the file a link names: a heading's slug is
  * the renderer's to decide, and a check that disagreed with GitHub's would be
@@ -302,6 +306,48 @@ export function typeProblems(files, config) {
 }
 
 /**
+ * Every way the docs index disagrees with the files it lists, as
+ * `{ file, problem }`, with `listed`. A row is a table line whose first cell
+ * links a file: `| [ci.md](ci.md) | … |`. Each file that `glob` names, less
+ * `exclude` and the index itself, has one row, each row links such a file,
+ * and the rows are in path order, case-insensitive.
+ */
+export function indexProblems(files, config) {
+  const { file: index, glob, exclude = [] } = config ?? {};
+  if (typeof index !== 'string' || typeof glob !== 'string' || !isStringList(exclude)) {
+    return Object.assign([{ file: null, problem: `docsIndex must be { file, glob, exclude } with a string file and glob and a list of strings, not ${JSON.stringify(config)}.` }], { listed: 0 });
+  }
+  const entry = files.find(({ file }) => file === index);
+  if (!entry) return Object.assign([{ file: null, problem: `docsIndex names ${index}, which does not exist. Create it, with a table row that links each file in ${glob}.` }], { listed: 0 });
+  const wanted = new Set(files.map(({ file }) => file).filter((file) => file !== index && path.matchesGlob(file, glob) && !exclude.some((pattern) => path.matchesGlob(file, pattern))));
+  const rows = [];
+  stripCode(entry.text)
+    .split('\n')
+    .forEach((line, i) => {
+      const match = /^\|\s*\[[^\]]*\]\(\s*<?([^)\s>]+)>?[^)]*\)/.exec(line);
+      const target = match && resolveTarget(index, match[1]);
+      if (target) rows.push({ line: i + 1, target, written: match[1] });
+    });
+  const problems = [];
+  const fail = (line, problem) => problems.push({ file: index, problem: `${index}:${line}: ${problem}` });
+  const seen = new Set();
+  let previous = null;
+  for (const row of rows) {
+    if (seen.has(row.target)) fail(row.line, `${row.written} has a second row. Remove it.`);
+    else if (!wanted.has(row.target)) fail(row.line, `the row links ${row.written}, which is not a file that docsIndex lists (${glob}). Remove the row, or link the file that it means.`);
+    else if (previous && row.target.toLowerCase() < previous.target.toLowerCase()) fail(row.line, `${row.written} comes after ${previous.written}. Keep the rows in path order.`);
+    seen.add(row.target);
+    previous = row;
+  }
+  for (const file of [...wanted].sort()) {
+    if (seen.has(file)) continue;
+    const link = path.posix.relative(path.posix.dirname(index), file);
+    problems.push({ file: index, problem: `${index} has no row for ${file}. Add "| [${link}](${link}) | what it holds |" in path order.` });
+  }
+  return Object.assign(problems, { listed: wanted.size });
+}
+
+/**
  * Every way the files break the `maxLines` rules, as `{ file, problem }`,
  * with `checked` (files held to a limit) and `excepted` (of those, the files
  * under an exception). A malformed rule or exception is itself a problem, so
@@ -446,6 +492,11 @@ export function run(root, { adrDir = 'docs/adr', config = {}, today } = {}) {
     const untyped = typeProblems(files, config.docTypes);
     problems.push(...untyped.map(({ file, problem }) => (file ? `::error file=${file}::${problem}` : `::error::${problem}`)));
     if (untyped.length === 0) summary.push(`${untyped.checked} topic files declare their type`);
+  }
+  if (config.docsIndex !== undefined) {
+    const unindexed = indexProblems(files, config.docsIndex);
+    problems.push(...unindexed.map(({ file, problem }) => (file ? `::error file=${file}::${problem}` : `::error::${problem}`)));
+    if (unindexed.length === 0) summary.push(`${config.docsIndex.file} lists all ${unindexed.listed} files, in path order`);
   }
   const warnings = [];
   if (config.ste !== undefined) {
