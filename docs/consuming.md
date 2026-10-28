@@ -1,3 +1,7 @@
+---
+type: how-to
+---
+
 # How to consume the checks
 
 This file tells a consumer repository how to pin the checks, how to update

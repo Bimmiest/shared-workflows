@@ -7,6 +7,19 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+## 1.5.0 — 2026-10-28
+
+### Added
+
+- **`docs-check` can require each topic file to declare its type**
+  ([#51](https://github.com/Bimmiest/shared-workflows/issues/51)). Set
+  `docTypes` to `{ glob, exclude, allowed }`. Each Markdown file that `glob`
+  matches, less `exclude`, must open with YAML frontmatter whose `type` is
+  one of `allowed`, for example the four Diátaxis types. A path tells what a
+  root file is for. Only the file can tell what a topic file is for. A
+  `maxLines` rule can now match on `type` as well as on `glob`. Nothing
+  changes until a repository sets `docTypes`.
+
 ## 1.4.0 — 2026-10-28
 
 ### Added
