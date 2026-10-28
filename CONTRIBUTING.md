@@ -35,74 +35,26 @@ gives the rule for the shape:
 - **A composite action** (`.github/actions/<name>/action.yml`) is for a step,
   or for a check that runs a script from this repository.
 
-## Scripts
+## Scripts and tests
 
-- **Use plain Node, with no dependencies.** A script is importable for its
-  test, and runnable as a command. The floor is Node 22, for
-  `path.matchesGlob` and `parseArgs`.
-- **Give each input through an argument or an environment variable.** Do not
-  put `${{ }}` in a `run:` block. The inputs of a composite action are text
-  that a caller wrote.
-- **Each script has a `*.test.mjs` beside it**, which `node --test` runs. If
-  a test does not hold a rule, the next edit can change the rule silently.
-  `npm run test:coverage` fails below the floors in `package.json`. When a
-  change adds tests, raise the floors to the new measurement, rounded down.
-- **Each failure is an `::error::` line** that says what to change. A script
-  returns its exit code from one function, so that the test can measure it in
-  the same process.
-- **An allowlist or exceptions file fails on an entry that nothing needs.**
-  Thus the file cannot rot.
-- **Each script-backed action has two fixtures** in `test/fixtures/`: one
-  that must pass and one that must fail. The `actions` job in `ci.yml` runs
-  the action on both, and fails if the second one passes. A new action gets
-  its two fixtures in the same change.
+The rules and their reasons are in [docs/code-style.md](docs/code-style.md)
+and [docs/testing.md](docs/testing.md). These are the rules that people break:
 
-## Code comments
-
-The code tells the reader what it does. A comment tells the reader what the
-code cannot tell. These rules apply to new code and to the code that you
-change. They come from the Google style guides, *Clean Code*, *Code Complete*,
-*A Philosophy of Software Design* and the Stack Overflow guide to code
-comments (2021).
-
-1. **A comment says why:** the constraint, the rule from a specification, or
-   the failure that the code prevents. Do not repeat what the code does.
-2. **Write the comment for the code as it is now.** Do not tell the history
-   of a change ("now", "before", "changed to"). The commit message has the
-   history. If the history explains a decision, link it: `(#123)` or
-   `See docs/adr/NNNN-title.md.`
-3. **Each exported function, class and constant has a JSDoc comment**
-   (`/** … */`). It says what the export does for the caller, and what it
-   promises. It does not say how.
-4. **If a comment is difficult to write, make the code clearer first.** Then
-   write the comment for the part that is still not clear.
-5. **Use the same quantity of comments as the file that you change.**
-6. **Put the reason next to the code that it explains.** The comment at the
-   top of a file says what the file is for, and what it does not do.
-7. **Link the source of a fact:** the section of a specification, the origin
-   of copied code, or the issue of the bug that the code prevents.
-8. **Do not keep code in a comment.** Git keeps the old version.
-9. **A TODO names its issue:** `TODO(#123): what is not done.`
-10. **A shortcut with a known limit says so:**
-    `shortcut: <the limit>, <when to change it>.`
-11. **When your change makes a comment false, change the comment in the same
-    commit.**
-
-This repository has no lint
-([ADR 0002](docs/adr/0002-the-repository-follows-the-template-standard-without-a-toolchain.md)).
-A reviewer checks all the rules. In the repositories that have a lint,
-`scripts/eslint-comments.mjs` from repo-template checks the rules 8 and 9.
+- **Use plain Node, with no dependencies.** A consumer runs a script with no
+  install.
+- **Each script has a `*.test.mjs` beside it, and each script-backed action
+  has a fixture that must pass and one that must fail.** `npm test` proves
+  the script. Only the fixtures prove the YAML around it.
+- **Each failure is an `::error::` line that says what to change.**
+- **A comment says why, for the code as it is now.** No lint checks the
+  comments here, so check your own diff.
 
 ## Pins
 
-Each `uses:` is `owner/action@<40-hex SHA> # vX.Y.Z`. The owner of a tag can
-move it while a job holds a checkout. Dependabot reads the comment, and
-changes the SHA and the comment together. It reads `.github/workflows/` and
-each `.github/actions/*/action.yml`. A container image, where you use one, is
-`image@sha256:… # tag`, for the same reason.
-
-In this repository, a workflow calls its own actions with `./`, not `$/`.
-actionlint does not accept `$/` yet. `ci.yml` gives the detail.
+**Pin each `uses:` to a full SHA, with `# vX.Y.Z` after it.** In this
+repository, a workflow calls its own actions with `./`.
+[docs/dependencies.md](docs/dependencies.md) gives the reasons, and why this
+repository has no npm dependencies.
 
 ## Branches, commits and pull requests
 
@@ -124,28 +76,20 @@ as the body. Thus `main` keeps what you write when you commit.
 
 ## Documentation
 
-**Write all documentation in ASD-STE100 Simplified Technical English**
-(template [ADR 0002](https://github.com/Bimmiest/repo-template/blob/main/docs/adr/0002-documentation-is-simplified-technical-english-and-a-readme-keeps-to-the-fundamentals.md)).
-This rule applies to each new or changed text. It does not apply to an
-accepted ADR, or to third-party text such as the Contributor Covenant. The
-main rules:
+**Write all documentation in ASD-STE100.** **Put each text in its class, and
+keep the file within the limit of its class.** The docs check enforces the
+limits, and each topic file in `docs/` declares its type.
+[docs/documentation.md](docs/documentation.md) gives the classes, the limits,
+the types and the STE rules. In short:
 
-- One topic in each sentence, and one instruction in each procedure step.
-- A maximum of 20 words in a procedure step, and 25 words in descriptive
-  text. A maximum of six sentences in a paragraph.
-- Use the active voice, and the imperative for an instruction.
-- Do not use "-ing" forms, except in technical names.
-- Use "must", "can" and "do not". Do not use `should`, `may`, `might` or
-  `would`.
-- Do not use phrasal verbs, contractions, semicolons in prose, or `e.g.`,
-  `i.e.` and `etc.`. The docs check warns on these words in the files that
-  `ste` names in `.docs-check.json`.
-- Do not change code, commands, file names or product names.
-
-**The README keeps to the fundamentals, in a maximum of 200 lines.** The
-docs check enforces the limit, from `.docs-check.json`. Put each topic that
-needs more than a few lines in `docs/`, and link it from the Documentation
-table of the README. Do not use a wiki.
+| Text | Where it goes |
+|---|---|
+| A rule that a contributor must follow | This file, in one or two sentences, with a link to the detail |
+| The detail of a rule, a recipe, a trap or a troubleshooting step | The topic file of its area in `docs/` |
+| What an action or a workflow does for a consumer | `docs/catalogue.md` |
+| A decision that stays true after the pull request | A new ADR in `docs/adr/` |
+| Work to do | An issue |
+| What a consumer gets from a bump | `CHANGELOG.md`, under `Unreleased` |
 
 **A change updates the documents that it makes wrong, in the same change.**
 
@@ -184,23 +128,3 @@ The version follows the inputs, the outputs and the verdicts. A new input
 with a default is a minor version. A check that fails on something that it
 passed before is a major version, because the bump can make the `main` of
 each consumer red.
-
-## Repository layout
-
-```
-.github/
-  workflows/
-    security.yml         reusable
-    workflow-lint.yml    reusable
-    scorecard.yml        reusable
-    ci.yml               the gates of this repository, which run the two above on it
-    pr-hygiene.yml       the PR hygiene of this repository, from the action below
-    release.yml          tags and publishes a release when `version` changes
-    settings.yml         the weekly settings check of this repository
-  actions/<name>/
-    action.yml           the composite action
-    <name>.mjs           the script that it runs, where there is one
-    <name>.test.mjs      the tests of the script, which `npm test` runs
-test/fixtures/           the projects that the actions job in ci.yml runs each action on
-docs/                    the catalogue, how to consume the checks, the principles, the ADRs
-```

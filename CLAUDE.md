@@ -40,7 +40,7 @@ not conform, rename it, and open the pull request from the new name.
 
 ## Code comments
 
-Follow [the rules](./CONTRIBUTING.md#code-comments). A comment says why, for
+Follow [the rules](./docs/code-style.md#code-comments). A comment says why, for
 the code as it is now. For history, link the issue or the ADR. No lint checks
 them here, so check your own diff for code in a comment and a TODO with no
 issue.
@@ -48,8 +48,11 @@ issue.
 ## Documentation
 
 Write all documentation in ASD-STE100. Keep the README to the fundamentals,
-in a maximum of 200 lines. Put the detail in `docs/`. When you add an action
-or change its inputs, update `docs/catalogue.md` in the same change.
+in a maximum of 200 lines. Put each text in its class: a rule in CONTRIBUTING,
+in one or two sentences, and its detail in the topic file of its area in
+`docs/` ([the classes](./docs/documentation.md#where-each-text-goes)). When you
+add an action or change its inputs, update `docs/catalogue.md` in the same
+change.
 
 ## Not in this file
 
