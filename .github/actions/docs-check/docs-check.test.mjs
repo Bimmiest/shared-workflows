@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
-import { adrProblems, brokenLinks, gapNotes, indexRows, licenceProblems, links, readmeLengthProblem, resolveTarget, run, steWarnings, stripCode } from './docs-check.mjs';
+import { adrProblems, brokenLinks, gapNotes, indexRows, lengthProblems, licenceProblems, links, readmeLengthProblem, resolveTarget, run, steWarnings, stripCode } from './docs-check.mjs';
 
 describe('stripCode', () => {
   it('blanks fenced blocks and inline spans, keeping line numbers', () => {
@@ -136,6 +136,57 @@ describe('readmeLengthProblem', () => {
   });
 });
 
+describe('lengthProblems', () => {
+  const lines = (n) => 'x\n'.repeat(n);
+  const rules = [
+    { glob: 'CHANGELOG.md', max: null },
+    { glob: 'CONTRIBUTING.md', max: 3, hint: 'Keep the rules here.' },
+    { glob: '**/*.md', max: 5 },
+  ];
+  const today = '2026-10-28';
+  const check = (files, exceptions) => lengthProblems(files, rules, exceptions, today);
+  const entry = { file: 'CONTRIBUTING.md', max: 6, reason: 'being split', issue: '#1', expires: '2026-12-31' };
+
+  it('holds each file to the first rule that matches it, root files included, and exempts a null max', () => {
+    const result = check([
+      { file: 'CHANGELOG.md', text: lines(99) },
+      { file: 'CONTRIBUTING.md', text: lines(3) },
+      { file: 'README.md', text: lines(5) },
+      { file: 'docs/a/b.md', text: lines(5) },
+    ]);
+    assert.deepEqual([...result], []);
+    assert.equal(result.checked, 3);
+  });
+
+  it('names the file, the count, the rule and its hint, or the default advice', () => {
+    const result = check([{ file: 'CONTRIBUTING.md', text: lines(4) }, { file: 'docs/a.md', text: lines(6) }]);
+    assert.deepEqual(result.map((p) => p.file), ['CONTRIBUTING.md', 'docs/a.md']);
+    assert.equal(result[0].problem, 'CONTRIBUTING.md is 4 lines, over the limit of 3 for `CONTRIBUTING.md` (maxLines). Keep the rules here.');
+    assert.match(result[1].problem, /over the limit of 5 for `\*\*\/\*\.md` \(maxLines\)\. Split it, or move the detail/);
+  });
+
+  it('lets an exception carry a file up to its own cap, and no further', () => {
+    const within = check([{ file: 'CONTRIBUTING.md', text: lines(6) }], [entry]);
+    assert.deepEqual([...within], []);
+    assert.equal(within.excepted, 1);
+    assert.match(check([{ file: 'CONTRIBUTING.md', text: lines(7) }], [entry])[0].problem, /over its maxLinesExceptions cap of 6\. The exception stops it from growing/);
+  });
+
+  it('fails an exception that expired, that the file no longer needs, or that names no limited file', () => {
+    assert.match(check([{ file: 'CONTRIBUTING.md', text: lines(6) }], [{ ...entry, expires: '2026-10-27' }])[0].problem, /expired on 2026-10-27/);
+    assert.match(check([{ file: 'CONTRIBUTING.md', text: lines(2) }], [entry])[0].problem, /is no longer needed\. Remove the entry\./);
+    assert.match(check([{ file: 'CHANGELOG.md', text: lines(9) }], [{ ...entry, file: 'CHANGELOG.md' }])[0].problem, /no Markdown file there is held to a limit/);
+  });
+
+  it('fails a malformed rule or exception rather than skipping it', () => {
+    for (const bad of [undefined, [], 'x']) assert.match(lengthProblems([], bad)[0].problem, /maxLines must be a list/);
+    assert.match(lengthProblems([], [{ glob: '*.md', max: 0 }])[0].problem, /maxLines\[0\] must have/);
+    for (const bad of [{ ...entry, reason: '' }, { ...entry, max: '6' }, { ...entry, expires: '31/12/2026' }]) {
+      assert.match(check([], [bad])[0].problem, /maxLinesExceptions\[0\] needs a file/);
+    }
+  });
+});
+
 describe('steWarnings', () => {
   it('finds each word that STE does not allow, on its line', () => {
     const text = 'You should run it.\nIt may fail, or it might.\nThat would help.\nTools, e.g. npm, i.e. this, etc.\nDon\'t do it. It\'s late, and they\'re here.\nOne; two.\n';
@@ -202,6 +253,15 @@ describe('run', () => {
     const { code, lines } = run(root, { config: { ...config, readmeMaxLines: 2 } });
     assert.equal(code, 1);
     assert.deepEqual(lines, ['::error file=README.md::README.md is 3 lines, over the limit of 2 (readmeMaxLines). Keep the fundamentals there and move the detail to docs/.']);
+  });
+
+  it('holds each file to maxLines only when the config sets it', () => {
+    const config = { skipDirs: ['docs'] };
+    assert.doesNotMatch(run(root, { config }).lines[0], /line limits/, 'unset: not checked');
+    assert.match(run(root, { config: { ...config, maxLines: [{ glob: '**/*.md', max: 3 }] } }).lines[0], /, 1 files keep to their line limits\.$/);
+    const { code, lines } = run(root, { config: { ...config, maxLines: [{ glob: 'README.md', max: 2, hint: 'Move it.' }] } });
+    assert.equal(code, 1);
+    assert.deepEqual(lines, ['::error file=README.md::README.md is 3 lines, over the limit of 2 for `README.md` (maxLines). Move it.']);
   });
 
   it('warns on STE words in the files that ste names, and still passes', () => {

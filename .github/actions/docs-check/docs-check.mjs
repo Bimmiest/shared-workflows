@@ -19,6 +19,10 @@
  *   6. When the config sets `ste`, the files it names get a warning for each
  *      word that ASD-STE100 does not allow (#20). A warning, never a failure:
  *      a word list cannot judge a sentence.
+ *   7. When the config sets `maxLines`, each Markdown file keeps to the limit
+ *      of the first rule whose glob matches it (#49). A file over its limit
+ *      can be listed under `maxLinesExceptions`, which caps it at its own
+ *      `max` until it expires, and fails once the file is back within the rule.
  *
  *   node docs-check.mjs [--root .] [--adr-dir docs/adr] [--config .docs-check.json]
  *
@@ -27,7 +31,11 @@
  *   { "skipDirs": ["generated"],
  *     "knownDeadLinks": [ { "file": "docs/adr/0007-x.md", "target": "./0006-y.md", "reason": "…" } ],
  *     "readmeMaxLines": 200,
- *     "ste": ["README.md", "docs/*.md"] }
+ *     "ste": ["README.md", "docs/*.md"],
+ *     "maxLines": [ { "glob": "CHANGELOG.md", "max": null },
+ *                   { "glob": "CONTRIBUTING.md", "max": 300, "hint": "Keep the rules here; move recipes to docs/." },
+ *                   { "glob": "**\/*.md", "max": 500 } ],
+ *     "maxLinesExceptions": [ { "file": "docs/big.md", "max": 900, "reason": "…", "issue": "#12", "expires": "2027-01-31" } ] }
  *
  * Anchors are not checked, only the file a link names: a heading's slug is
  * the renderer's to decide, and a check that disagreed with GitHub's would be
@@ -250,6 +258,67 @@ export function readmeLengthProblem(readme, max) {
   return `README.md is ${lines} lines, over the limit of ${max} (readmeMaxLines). Keep the fundamentals there and move the detail to docs/.`;
 }
 
+/** The number of lines in a text, not counting one final newline. */
+const lineCount = (text) => text.replace(/\n$/, '').split('\n').length;
+
+const isLimit = (max) => max === null || (Number.isInteger(max) && max >= 1);
+
+/**
+ * Every way the files break the `maxLines` rules, as `{ file, problem }`,
+ * with `checked` (files held to a limit) and `excepted` (of those, the files
+ * under an exception). A malformed rule or exception is itself a problem, so
+ * a typo in the config cannot turn the check off. `today` is `YYYY-MM-DD`.
+ */
+export function lengthProblems(files, rules, exceptions = [], today = new Date().toISOString().slice(0, 10)) {
+  const problems = [];
+  const fail = (problem, file = null) => problems.push({ file, problem });
+  if (!Array.isArray(rules) || rules.length === 0) {
+    fail(`maxLines must be a list of { glob, max, hint } rules, not ${JSON.stringify(rules)}.`);
+    return Object.assign(problems, { checked: 0, excepted: 0 });
+  }
+  const valid = rules.filter((rule, index) => {
+    if (typeof rule?.glob === 'string' && isLimit(rule.max) && (rule.hint === undefined || typeof rule.hint === 'string')) return true;
+    fail(`maxLines[${index}] must have a string glob, a max that is a positive whole number or null, and an optional string hint, not ${JSON.stringify(rule)}.`);
+    return false;
+  });
+  if (!Array.isArray(exceptions)) {
+    fail(`maxLinesExceptions must be a list, not ${JSON.stringify(exceptions)}.`);
+    exceptions = [];
+  }
+  const byFile = new Map();
+  exceptions.forEach((entry, index) => {
+    const missing = ['file', 'reason', 'issue', 'expires'].filter((key) => typeof entry?.[key] !== 'string' || entry[key].trim() === '');
+    if (missing.length || !Number.isInteger(entry.max) || entry.max < 1 || !/^\d{4}-\d{2}-\d{2}$/.test(entry.expires)) {
+      fail(`maxLinesExceptions[${index}] needs a file, a max that is a positive whole number, a reason, an issue and expires as YYYY-MM-DD, not ${JSON.stringify(entry)}.`);
+    } else byFile.set(entry.file, entry);
+  });
+
+  let checked = 0;
+  let excepted = 0;
+  const used = new Set();
+  for (const { file, text } of files) {
+    const rule = valid.find(({ glob }) => path.matchesGlob(file, glob));
+    if (!rule || rule.max === null) continue;
+    checked++;
+    const lines = lineCount(text);
+    const entry = byFile.get(file);
+    const limit = `the limit of ${rule.max} for \`${rule.glob}\` (maxLines)`;
+    if (entry) {
+      used.add(file);
+      if (entry.expires < today) fail(`The maxLinesExceptions entry for ${file} expired on ${entry.expires}. The file is ${lines} lines, over ${limit}. Bring it within the limit, or argue the exception again with a new date (${entry.issue}).`, file);
+      else if (lines <= rule.max) fail(`${file} is ${lines} lines, within ${limit}, so its maxLinesExceptions entry is no longer needed. Remove the entry.`, file);
+      else if (lines > entry.max) fail(`${file} is ${lines} lines, over its maxLinesExceptions cap of ${entry.max}. The exception stops it from growing: move text out, not in (${entry.issue}).`, file);
+      else excepted++;
+    } else if (lines > rule.max) {
+      fail(`${file} is ${lines} lines, over ${limit}. ${rule.hint ?? 'Split it, or move the detail to a topic file in docs/.'}`, file);
+    }
+  }
+  for (const file of byFile.keys()) {
+    if (!used.has(file)) fail(`maxLinesExceptions lists ${file}, but no Markdown file there is held to a limit. Remove the entry.`);
+  }
+  return Object.assign(problems, { checked, excepted });
+}
+
 /**
  * The words that ASD-STE100 does not allow, each with what to write instead.
  * Only the clear cases: a word that STE allows in one sense and not in
@@ -290,7 +359,7 @@ export function steWarnings(text) {
 }
 
 /** The lines to print and the exit code, for the repository at `root`. */
-export function run(root, { adrDir = 'docs/adr', config = {} } = {}) {
+export function run(root, { adrDir = 'docs/adr', config = {}, today } = {}) {
   const exists = (relative) => {
     try {
       statSync(path.join(root, relative));
@@ -326,6 +395,11 @@ export function run(root, { adrDir = 'docs/adr', config = {} } = {}) {
       if (tooLong) problems.push(`::error file=README.md::${tooLong}`);
       else summary.push(`the README is within ${config.readmeMaxLines} lines`);
     }
+  }
+  if (config.maxLines !== undefined) {
+    const long = lengthProblems(files, config.maxLines, config.maxLinesExceptions, today);
+    problems.push(...long.map(({ file, problem }) => (file ? `::error file=${file}::${problem}` : `::error::${problem}`)));
+    if (long.length === 0) summary.push(`${long.checked} files keep to their line limits${long.excepted ? ` (${long.excepted} under an exception)` : ''}`);
   }
   const warnings = [];
   if (config.ste !== undefined) {

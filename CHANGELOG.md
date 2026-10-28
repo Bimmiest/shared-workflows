@@ -7,6 +7,21 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+## 1.4.0 — 2026-10-28
+
+### Added
+
+- **`docs-check` can hold each class of Markdown file to a line limit**
+  ([#49](https://github.com/Bimmiest/shared-workflows/issues/49)). Set
+  `maxLines` in `.docs-check.json` to an ordered list of
+  `{ glob, max, hint }` rules. The first glob that matches a file sets its
+  limit, and `max: null` exempts it. The `hint` is printed with the failure,
+  so the message says what belongs where. A file that is over its limit can
+  go in `maxLinesExceptions` with a reason, an issue and an expiry date. The
+  exception stops the file from growing past its own `max`, and it fails
+  when it expires or when the file is back within the rule. `readmeMaxLines`
+  continues to work. Nothing changes until a repository sets `maxLines`.
+
 ## 1.3.1 — 2026-10-26
 
 ### Fixed
