@@ -4,7 +4,8 @@ description: >-
   relative Markdown link resolves, the ADR index agrees with the ADR directory
   and is in order, every gap in the ADR numbering is explained, every root
   `LICENSE-*` file is linked from the README, and (when the config asks) the
-  README, or each class of Markdown file, stays within a line limit. When the config names `ste` files, it
+  README, or each class of Markdown file, stays within a line limit, and each
+  topic file declares its type. When the config names `ste` files, it
   warns on each word that ASD-STE100 does not allow. Needs Node on the PATH
   and no install.
 inputs:
@@ -20,7 +21,10 @@ inputs:
       exempts it, and `hint` is printed with the failure), `maxLinesExceptions`
       (`{ file, max, reason, issue, expires }`; it caps a file that is over its
       limit at `max`, and fails when it expires or the file is back within the
-      rule) and `ste` (a list of globs; each file it matches gets a warning for
+      rule), `docTypes` (`{ glob, exclude, allowed }`; each file that `glob`
+      matches, less `exclude`, opens with YAML frontmatter whose `type` is one
+      of `allowed`, and a `maxLines` rule can match on that `type`) and `ste`
+      (a list of globs; each file it matches gets a warning for
       each word that ASD-STE100 does not allow, and never a failure).
     default: .docs-check.json
   working-directory:

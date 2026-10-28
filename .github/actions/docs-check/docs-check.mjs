@@ -23,6 +23,10 @@
  *      of the first rule whose glob matches it (#49). A file over its limit
  *      can be listed under `maxLinesExceptions`, which caps it at its own
  *      `max` until it expires, and fails once the file is back within the rule.
+ *   8. When the config sets `docTypes`, each topic file it names opens with
+ *      YAML frontmatter whose `type` is one it allows (#51). A path says what
+ *      a root file is for; only the file can say what a topic file is for.
+ *      A `maxLines` rule can match on that `type` as well as on a glob.
  *
  *   node docs-check.mjs [--root .] [--adr-dir docs/adr] [--config .docs-check.json]
  *
@@ -35,7 +39,8 @@
  *     "maxLines": [ { "glob": "CHANGELOG.md", "max": null },
  *                   { "glob": "CONTRIBUTING.md", "max": 300, "hint": "Keep the rules here; move recipes to docs/." },
  *                   { "glob": "**\/*.md", "max": 500 } ],
- *     "maxLinesExceptions": [ { "file": "docs/big.md", "max": 900, "reason": "…", "issue": "#12", "expires": "2027-01-31" } ] }
+ *     "maxLinesExceptions": [ { "file": "docs/big.md", "max": 900, "reason": "…", "issue": "#12", "expires": "2027-01-31" } ],
+ *     "docTypes": { "glob": "docs/**\/*.md", "exclude": ["docs/adr/**"], "allowed": ["how-to", "reference"] } }
  *
  * Anchors are not checked, only the file a link names: a heading's slug is
  * the renderer's to decide, and a check that disagreed with GitHub's would be
@@ -263,6 +268,39 @@ const lineCount = (text) => text.replace(/\n$/, '').split('\n').length;
 
 const isLimit = (max) => max === null || (Number.isInteger(max) && max >= 1);
 
+const isStringList = (value, { empty = true } = {}) => Array.isArray(value) && (empty || value.length > 0) && value.every((item) => typeof item === 'string');
+
+/** The `type` in the YAML frontmatter that opens a Markdown text, or null when there is none. */
+export function frontmatterType(text) {
+  const front = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(text);
+  if (!front) return null;
+  const type = /^type:[ \t]*(["']?)([\w-]+)\1[ \t]*(?:#.*)?$/m.exec(front[1]);
+  return type ? type[2] : null;
+}
+
+/**
+ * Every topic file that `docTypes` names and whose frontmatter type is
+ * missing or not allowed, as `{ file, problem }`, with `checked`. A malformed
+ * config is itself a problem, so a typo cannot turn the check off.
+ */
+export function typeProblems(files, config) {
+  const { glob, exclude = [], allowed } = config ?? {};
+  if (typeof glob !== 'string' || !isStringList(exclude) || !isStringList(allowed, { empty: false })) {
+    return Object.assign([{ file: null, problem: `docTypes must be { glob, exclude, allowed } with a string glob and lists of strings, not ${JSON.stringify(config)}.` }], { checked: 0 });
+  }
+  const problems = [];
+  let checked = 0;
+  for (const { file, text } of files) {
+    if (!path.matchesGlob(file, glob) || exclude.some((pattern) => path.matchesGlob(file, pattern))) continue;
+    checked++;
+    const type = frontmatterType(text);
+    const add = `Open the file with frontmatter that names one of ${allowed.join(', ')}: "---", "type: <type>", "---".`;
+    if (type === null) problems.push({ file, problem: `${file} declares no type. ${add}` });
+    else if (!allowed.includes(type)) problems.push({ file, problem: `${file} declares type "${type}", which docTypes does not allow. ${add}` });
+  }
+  return Object.assign(problems, { checked });
+}
+
 /**
  * Every way the files break the `maxLines` rules, as `{ file, problem }`,
  * with `checked` (files held to a limit) and `excepted` (of those, the files
@@ -276,9 +314,10 @@ export function lengthProblems(files, rules, exceptions = [], today = new Date()
     fail(`maxLines must be a list of { glob, max, hint } rules, not ${JSON.stringify(rules)}.`);
     return Object.assign(problems, { checked: 0, excepted: 0 });
   }
+  const optionalString = (value) => value === undefined || typeof value === 'string';
   const valid = rules.filter((rule, index) => {
-    if (typeof rule?.glob === 'string' && isLimit(rule.max) && (rule.hint === undefined || typeof rule.hint === 'string')) return true;
-    fail(`maxLines[${index}] must have a string glob, a max that is a positive whole number or null, and an optional string hint, not ${JSON.stringify(rule)}.`);
+    if ((typeof rule?.glob === 'string' || typeof rule?.type === 'string') && optionalString(rule.glob) && optionalString(rule.type) && isLimit(rule.max) && optionalString(rule.hint)) return true;
+    fail(`maxLines[${index}] must have a string glob or type (or both), a max that is a positive whole number or null, and an optional string hint, not ${JSON.stringify(rule)}.`);
     return false;
   });
   if (!Array.isArray(exceptions)) {
@@ -297,12 +336,14 @@ export function lengthProblems(files, rules, exceptions = [], today = new Date()
   let excepted = 0;
   const used = new Set();
   for (const { file, text } of files) {
-    const rule = valid.find(({ glob }) => path.matchesGlob(file, glob));
+    const type = frontmatterType(text);
+    const rule = valid.find((r) => (r.glob === undefined || path.matchesGlob(file, r.glob)) && (r.type === undefined || r.type === type));
     if (!rule || rule.max === null) continue;
     checked++;
     const lines = lineCount(text);
     const entry = byFile.get(file);
-    const limit = `the limit of ${rule.max} for \`${rule.glob}\` (maxLines)`;
+    const scope = [rule.glob !== undefined && `\`${rule.glob}\``, rule.type !== undefined && `type ${rule.type}`].filter(Boolean).join(', ');
+    const limit = `the limit of ${rule.max} for ${scope} (maxLines)`;
     if (entry) {
       used.add(file);
       if (entry.expires < today) fail(`The maxLinesExceptions entry for ${file} expired on ${entry.expires}. The file is ${lines} lines, over ${limit}. Bring it within the limit, or argue the exception again with a new date (${entry.issue}).`, file);
@@ -400,6 +441,11 @@ export function run(root, { adrDir = 'docs/adr', config = {}, today } = {}) {
     const long = lengthProblems(files, config.maxLines, config.maxLinesExceptions, today);
     problems.push(...long.map(({ file, problem }) => (file ? `::error file=${file}::${problem}` : `::error::${problem}`)));
     if (long.length === 0) summary.push(`${long.checked} files keep to their line limits${long.excepted ? ` (${long.excepted} under an exception)` : ''}`);
+  }
+  if (config.docTypes !== undefined) {
+    const untyped = typeProblems(files, config.docTypes);
+    problems.push(...untyped.map(({ file, problem }) => (file ? `::error file=${file}::${problem}` : `::error::${problem}`)));
+    if (untyped.length === 0) summary.push(`${untyped.checked} topic files declare their type`);
   }
   const warnings = [];
   if (config.ste !== undefined) {

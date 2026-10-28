@@ -1,3 +1,7 @@
+---
+type: explanation
+---
+
 # Principles
 
 Each check here came from a failure in one of the source repositories. The

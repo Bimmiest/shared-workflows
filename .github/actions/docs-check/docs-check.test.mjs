@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
-import { adrProblems, brokenLinks, gapNotes, indexRows, lengthProblems, licenceProblems, links, readmeLengthProblem, resolveTarget, run, steWarnings, stripCode } from './docs-check.mjs';
+import { adrProblems, brokenLinks, frontmatterType, gapNotes, indexRows, lengthProblems, licenceProblems, links, readmeLengthProblem, resolveTarget, run, steWarnings, stripCode, typeProblems } from './docs-check.mjs';
 
 describe('stripCode', () => {
   it('blanks fenced blocks and inline spans, keeping line numbers', () => {
@@ -184,6 +184,53 @@ describe('lengthProblems', () => {
     for (const bad of [{ ...entry, reason: '' }, { ...entry, max: '6' }, { ...entry, expires: '31/12/2026' }]) {
       assert.match(check([], [bad])[0].problem, /maxLinesExceptions\[0\] needs a file/);
     }
+  });
+});
+
+describe('frontmatterType', () => {
+  it('reads the type from frontmatter that opens the file, quoted or not, with a comment after it', () => {
+    assert.equal(frontmatterType('---\ntitle: x\ntype: how-to\n---\n# X\n'), 'how-to');
+    assert.equal(frontmatterType('---\ntype: "reference" # what it is\n---\n'), 'reference');
+  });
+
+  it('finds no type without frontmatter at the top, or without a type key in it', () => {
+    assert.equal(frontmatterType('# X\n---\ntype: how-to\n---\n'), null);
+    assert.equal(frontmatterType('---\ntitle: x\n---\n'), null);
+  });
+});
+
+describe('typeProblems', () => {
+  const config = { glob: 'docs/**/*.md', exclude: ['docs/adr/**'], allowed: ['how-to', 'reference'] };
+  const typed = (type) => `---\ntype: ${type}\n---\n# Doc\n`;
+
+  it('checks only the files that the glob names, less the excluded ones', () => {
+    const result = typeProblems([
+      { file: 'README.md', text: '# R\n' },
+      { file: 'docs/adr/0001-x.md', text: '# 1\n' },
+      { file: 'docs/a.md', text: typed('how-to') },
+      { file: 'docs/b/c.md', text: typed('reference') },
+    ], config);
+    assert.deepEqual([...result], []);
+    assert.equal(result.checked, 2);
+  });
+
+  it('fails a topic file with no type, or a type that is not allowed, and says what to write', () => {
+    const result = typeProblems([{ file: 'docs/a.md', text: '# A\n' }, { file: 'docs/b.md', text: typed('essay') }], config);
+    assert.match(result[0].problem, /^docs\/a\.md declares no type\. Open the file with frontmatter that names one of how-to, reference/);
+    assert.match(result[1].problem, /^docs\/b\.md declares type "essay", which docTypes does not allow\./);
+  });
+
+  it('fails a malformed config rather than skipping the check', () => {
+    for (const bad of [undefined, {}, { glob: 'docs/**', allowed: [] }, { glob: 'docs/**', allowed: ['x'], exclude: 'docs/adr/**' }]) {
+      assert.match(typeProblems([], bad)[0].problem, /^docTypes must be/);
+    }
+  });
+
+  it('lets a maxLines rule match on the type', () => {
+    const rules = [{ type: 'how-to', max: 3 }, { glob: '**/*.md', max: 50 }];
+    const result = lengthProblems([{ file: 'docs/a.md', text: typed('how-to') + 'x\n'.repeat(5) }, { file: 'docs/b.md', text: typed('reference') + 'x\n'.repeat(5) }], rules, [], '2026-10-28');
+    assert.deepEqual(result.map((p) => p.file), ['docs/a.md']);
+    assert.match(result[0].problem, /over the limit of 3 for type how-to \(maxLines\)/);
   });
 });
 
