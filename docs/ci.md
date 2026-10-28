@@ -18,3 +18,5 @@ Each workflow of this repository, what makes it fail, and where its rule is. [ca
 | `settings.yml` (weekly) | A repository setting that differs from the checklist of repo-template. A failure opens an issue | `.repo-settings.json` |
 
 `ci.yml` also runs each Monday, so that a new advisory or a new Node patch shows on `main` without a pull request.
+
+This repository has no `supply-chain.yml`, which repo-template has. That workflow checks two things that Dependabot cannot see: whether `.nvmrc` is the newest patch of its Node line, and whether the exact pins match the lockfile. Here, the Monday run of the `ci.yml` `test` job does the first check, and the second does not apply, because this repository has no npm dependencies ([ADR 0002](adr/0002-the-repository-follows-the-template-standard-without-a-toolchain.md)).
