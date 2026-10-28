@@ -7,6 +7,16 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+## 1.7.1 — 2026-10-28
+
+### Fixed
+
+- **`security.yml`'s trivy job tries a second mirror for its database**
+  ([#68](https://github.com/Bimmiest/shared-workflows/issues/68)). It tries
+  `mirror.gcr.io`, then `public.ecr.aws`, then `ghcr.io`. A new database used
+  to fail the job while `mirror.gcr.io` lagged it, and `ghcr.io` can refuse an
+  anonymous pull, so the job failed before it scanned anything.
+
 ## 1.7.0 — 2026-10-28
 
 ### Added
