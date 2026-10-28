@@ -1,0 +1,26 @@
+name: Baseline check
+description: >-
+  Fails when a repository lacks a file that each repository made from
+  repo-template has: the governance files, the issue forms, the workflows,
+  the scanner and check configs, the docs index and the six topic files, and
+  the Node toolchain files where there is a package-lock.json. A file that a
+  repository omits on purpose is excepted in `.baseline-exceptions.json`,
+  with its reason; an exception that is no longer needed fails. Needs Node on
+  the PATH and no install.
+inputs:
+  config:
+    description: Optional JSON with `exceptions` (`{ file, reason }`).
+    default: .baseline-exceptions.json
+  working-directory:
+    description: The repository root.
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: The repository has the baseline files
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        CONFIG: ${{ inputs.config }}
+        SCRIPT: ${{ github.action_path }}/baseline-check.mjs
+      run: node "$SCRIPT" --config "$CONFIG"

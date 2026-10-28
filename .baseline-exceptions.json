@@ -1,0 +1,9 @@
+{
+  "$comment": "Read by the baseline-check action in ci.yml. Each entry is a file of repo-template that this repository omits, with the reason. An exception for a file that exists fails.",
+  "exceptions": [
+    {
+      "file": ".github/workflows/supply-chain.yml",
+      "reason": "The Monday ci.yml run checks the Node patch, and there are no npm dependencies to check (docs/ci.md, ADR 0002)."
+    }
+  ]
+}

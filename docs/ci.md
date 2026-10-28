@@ -8,7 +8,7 @@ Each workflow of this repository, what makes it fail, and where its rule is. [ca
 
 | Workflow and job | What makes it fail | Where the rule is |
 |---|---|---|
-| `ci.yml` `test` | A script test, a coverage floor, the docs check on this repository, or a `.nvmrc` that is behind its Node line | The `*.test.mjs` files, `package.json`, `.docs-check.json` |
+| `ci.yml` `test` | A script test, a coverage floor, the docs check or the baseline check on this repository, or a `.nvmrc` that is behind its Node line | The `*.test.mjs` files, `package.json`, `.docs-check.json`, `.baseline-exceptions.json` |
 | `ci.yml` `actions` | An action that fails its fixture that must pass, or passes its fixture that must fail | `test/fixtures/` |
 | `ci.yml` `workflow-lint` | actionlint and zizmor findings in `.github/`, from this repository's own `workflow-lint.yml` | The workflows |
 | `ci.yml` `security` | A secret anywhere in the history, or a fixable CRITICAL or HIGH finding, from this repository's own `security.yml` | `.gitleaks.toml`, `.trivyignore.yaml` |

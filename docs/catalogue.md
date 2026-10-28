@@ -46,6 +46,7 @@ the `PATH` of the runner, and they need Node 22 or later.
 | [`docs-check`](../.github/actions/docs-check/action.yml) | Fails on a relative Markdown link that does not resolve. Fails when the ADR index does not agree with `docs/adr/`, is not in order, or does not explain a gap. Fails when a root `LICENSE-*` file is not in the README. With `readmeMaxLines`, fails on a longer README. With `maxLines`, fails on each Markdown file that is longer than the first rule that matches it, less the files that `maxLinesExceptions` caps until a date. With `docTypes`, fails on a topic file whose frontmatter has no allowed `type`. With `docsIndex`, fails when the index of `docs/` has no row for a topic file, a row for no file, or rows out of path order. With `ste`, warns on each word that ASD-STE100 does not allow, in the files that `ste` names. | The Markdown files, `.docs-check.json` if it exists |
 | [`node-patch-check`](../.github/actions/node-patch-check/action.yml) | Fails when `.nvmrc` is not the newest patch of its Node line. It asks nodejs.org. Use `warn-only` on a pull request. | `.nvmrc` |
 | [`repo-settings-check`](../.github/actions/repo-settings-check/action.yml) | Fails when a repository setting differs from the checklist of `repo-template`: the merge methods and the squash body, branch deletion, the wiki, the Actions permissions and SHA pinning, fork approval, private vulnerability reporting, Dependabot alerts, secret scanning, push protection, and the ruleset on `main`. A setting that the token cannot read fails. Each exception has a reason, and an exception that nothing needs fails. | A `token` with "Administration: read", `.repo-settings.json` if it exists |
+| [`baseline-check`](../.github/actions/baseline-check/action.yml) | Fails when the repository lacks a file that each repository made from `repo-template` has: the governance files, the issue forms, the workflows, the scanner and check configs, the docs index and the six topic files, and the Node toolchain files where there is a `package-lock.json`. Each exception has a reason, and an exception for a file that exists fails. The list is in the action, so a file added to it is a major version. | `.baseline-exceptions.json` if it exists |
 | [`open-or-update-issue`](../.github/actions/open-or-update-issue/action.yml) | Keeps one open issue for each label, for a scheduled check. While the finding stays, it adds a comment to the issue. | The job needs `issues: write` |
 
 ## Inputs that callers change
@@ -63,9 +64,9 @@ the `PATH` of the runner, and they need Node 22 or later.
 
 ## The commands behind the actions
 
-Eight actions run a script that is also a command. `npm` installs these
-`bin` names: `audit-check`, `changelog-check`, `coverage-ratchet`, `docs-check`,
-`licence-check`, `node-patch-check`, `pr-hygiene` and
-`repo-settings-check`. The arguments of a command are the same
+Nine actions run a script that is also a command. `npm` installs these
+`bin` names: `audit-check`, `baseline-check`, `changelog-check`,
+`coverage-ratchet`, `docs-check`, `licence-check`, `node-patch-check`,
+`pr-hygiene` and `repo-settings-check`. The arguments of a command are the same
 as the arguments that the action gives. [consuming.md](consuming.md) tells you
 how to run them.

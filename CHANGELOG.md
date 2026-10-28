@@ -7,6 +7,20 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+## 1.7.0 — 2026-10-28
+
+### Added
+
+- **`baseline-check`: the repository has the files of repo-template**
+  ([#58](https://github.com/Bimmiest/shared-workflows/issues/58)). It fails
+  on each missing file of the template's baseline: the governance files, the
+  issue forms, the workflows, the scanner and check configs, the docs index
+  and the six topic files, and the Node toolchain files where there is a
+  `package-lock.json`. Put a file that the repository omits on purpose in
+  `.baseline-exceptions.json`, as `{ file, reason }`. An exception for a file
+  that exists fails. Nothing changes until a repository adds the step. Run it
+  in `ci.yml`: a file goes missing only with a commit.
+
 ## 1.6.0 — 2026-10-28
 
 ### Added

@@ -56,6 +56,9 @@ jobs:
         with:
           warn-only: ${{ github.event_name == 'pull_request' }}
 
+      - name: baseline-check, on this repository
+        uses: ./.github/actions/baseline-check # zizmor: ignore[self-repository]
+
   # Each script-backed action against a fixture in test/fixtures/ that must
   # pass and one that must fail (#18). The unit tests prove the scripts. This
   # proves the action.yml around them: the paths, the inputs and the
@@ -130,6 +133,13 @@ jobs:
         with:
           working-directory: test/fixtures/node-patch-check/fail
 
+      - name: baseline-check (must fail)
+        id: baseline-check
+        continue-on-error: true
+        uses: ./.github/actions/baseline-check # zizmor: ignore[self-repository]
+        with:
+          working-directory: test/fixtures/baseline-check/fail
+
       # `outcome` is the result before continue-on-error turns it green.
       - name: Each fixture that must fail failed
         env:
@@ -138,9 +148,10 @@ jobs:
           LICENCE_CHECK: ${{ steps.licence-check.outcome }}
           DOCS_CHECK: ${{ steps.docs-check.outcome }}
           NODE_PATCH_CHECK: ${{ steps.node-patch-check.outcome }}
+          BASELINE_CHECK: ${{ steps.baseline-check.outcome }}
         run: |
           status=0
-          for name in COVERAGE_RATCHET AUDIT_CHECK LICENCE_CHECK DOCS_CHECK NODE_PATCH_CHECK; do
+          for name in COVERAGE_RATCHET AUDIT_CHECK LICENCE_CHECK DOCS_CHECK NODE_PATCH_CHECK BASELINE_CHECK; do
             if [ "${!name}" != failure ]; then
               echo "::error::The fixture for ${name} that must fail ended in '${!name}'."
               status=1
