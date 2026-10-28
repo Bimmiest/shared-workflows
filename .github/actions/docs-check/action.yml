@@ -4,7 +4,7 @@ description: >-
   relative Markdown link resolves, the ADR index agrees with the ADR directory
   and is in order, every gap in the ADR numbering is explained, every root
   `LICENSE-*` file is linked from the README, and (when the config asks) the
-  README stays within a line limit. When the config names `ste` files, it
+  README, or each class of Markdown file, stays within a line limit. When the config names `ste` files, it
   warns on each word that ASD-STE100 does not allow. Needs Node on the PATH
   and no install.
 inputs:
@@ -12,7 +12,16 @@ inputs:
     description: The directory of `NNNN-*.md` records with a `README.md` index. Skipped when it does not exist.
     default: docs/adr
   config:
-    description: Optional JSON with `skipDirs`, `knownDeadLinks` (`{ file, target, reason }`, ADR records only) `readmeMaxLines` (a positive whole number; unset means no limit) and `ste` (a list of globs; each file it matches gets a warning for each word that ASD-STE100 does not allow, and never a failure).
+    description: >-
+      Optional JSON with `skipDirs`, `knownDeadLinks` (`{ file, target, reason
+      }`, ADR records only) `readmeMaxLines` (a positive whole number; unset
+      means no limit), `maxLines` (an ordered list of `{ glob, max, hint }`
+      rules; the first glob that matches a file sets its limit, `max: null`
+      exempts it, and `hint` is printed with the failure), `maxLinesExceptions`
+      (`{ file, max, reason, issue, expires }`; it caps a file that is over its
+      limit at `max`, and fails when it expires or the file is back within the
+      rule) and `ste` (a list of globs; each file it matches gets a warning for
+      each word that ASD-STE100 does not allow, and never a failure).
     default: .docs-check.json
   working-directory:
     description: The repository root to check.
