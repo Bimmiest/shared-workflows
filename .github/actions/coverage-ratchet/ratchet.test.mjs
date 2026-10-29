@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { describe, it } from 'node:test';
+import { after, describe, it } from 'node:test';
 import { measure, problems, report, thresholdsFromConfig, thresholdsFromText } from './ratchet.mjs';
 
 const entry = (covered, total) =>
@@ -96,6 +96,7 @@ describe('thresholdsFromText', () => {
 
 describe('thresholdsFromConfig', () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'ratchet-'));
+  after(() => rmSync(dir, { recursive: true, force: true }));
 
   it('imports a default-export object', async () => {
     const file = path.join(dir, 'object.config.mjs');
