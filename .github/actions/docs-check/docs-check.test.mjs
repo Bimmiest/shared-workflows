@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { describe, it } from 'node:test';
+import { after, describe, it } from 'node:test';
 import { adrProblems, brokenLinks, frontmatterType, gapNotes, indexProblems, indexRows, lengthProblems, licenceProblems, links, readmeLengthProblem, resolveTarget, run, steWarnings, stripCode, typeProblems } from './docs-check.mjs';
 
 describe('stripCode', () => {
@@ -300,6 +300,7 @@ describe('steWarnings', () => {
 
 describe('run', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'docs-check-'));
+  after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(path.join(root, 'docs/adr'), { recursive: true });
   mkdirSync(path.join(root, 'node_modules/pkg'), { recursive: true });
   writeFileSync(path.join(root, 'node_modules/pkg/README.md'), '[never read](nowhere.md)');
@@ -347,8 +348,9 @@ describe('run', () => {
     assert.deepEqual(lines, ['::error file=README.md::README.md is 3 lines, over the limit of 2 for `README.md` (maxLines). Move it.']);
   });
 
-  it('warns on STE words in the files that ste names, and still passes', () => {
+  it('warns on STE words in the files that ste names, and still passes', (t) => {
     const ste = mkdtempSync(path.join(tmpdir(), 'docs-check-ste-'));
+    t.after(() => rmSync(ste, { recursive: true, force: true }));
     mkdirSync(path.join(ste, 'docs/adr'), { recursive: true });
     writeFileSync(path.join(ste, 'README.md'), '# Repo\n\nIt works.\n');
     writeFileSync(path.join(ste, 'docs/guide.md'), '# Guide\n');
