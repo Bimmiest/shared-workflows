@@ -1,0 +1,25 @@
+name: Lint allowlist check
+description: >-
+  Each count in the lint allowlist is what its rule finds today. The caller's
+  eslint.config.js turns each listed rule off for its file, so the lint cannot
+  see a new finding there. This lints the listed files with those rules on
+  again, through the caller's own ESLint, and fails when a count is higher
+  (new code) or lower (a fix that did not lower the count). Run it after
+  npm ci.
+inputs:
+  allowlist:
+    description: 'The file with the counts: { "files": { "<path>": { "<rule>": <count> } } }.'
+    default: scripts/lint-allowlist.json
+  working-directory:
+    description: Where the project, its eslint.config.js and the allowlist are.
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: The lint allowlist holds
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        ALLOWLIST: ${{ inputs.allowlist }}
+        SCRIPT: ${{ github.action_path }}/lint-allowlist-check.mjs
+      run: node "$SCRIPT" --allowlist "$ALLOWLIST"

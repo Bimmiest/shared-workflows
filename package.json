@@ -1,6 +1,6 @@
 {
   "name": "@bimmiest/shared-workflows",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "private": true,
   "description": "Reusable GitHub Actions workflows and composite actions: the CI gates shared across Bimmiest repositories.",
   "license": "MIT",
@@ -25,6 +25,7 @@
     "dependabot-review-facts": ".github/actions/dependabot-review-facts/facts.mjs",
     "docs-check": ".github/actions/docs-check/docs-check.mjs",
     "licence-check": ".github/actions/licence-check/licence-check.mjs",
+    "lint-allowlist-check": ".github/actions/lint-allowlist-check/lint-allowlist-check.mjs",
     "lockfile-nesting-check": ".github/actions/lockfile-nesting-check/lockfile-nesting.mjs",
     "node-patch-check": ".github/actions/node-patch-check/node-patch.mjs",
     "package-contents-check": ".github/actions/package-contents-check/package-contents-check.mjs",

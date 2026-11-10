@@ -104,6 +104,16 @@ jobs:
         with:
           working-directory: test/fixtures/package-contents-check/pass
 
+      # The check runs the caller's own ESLint, so its fixtures install one.
+      - name: Install the ESLint of the lint-allowlist-check fixtures
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: test/fixtures/lint-allowlist-check
+
+      - name: lint-allowlist-check
+        uses: ./.github/actions/lint-allowlist-check # zizmor: ignore[self-repository]
+        with:
+          working-directory: test/fixtures/lint-allowlist-check/pass
+
       - name: lockfile-nesting-check
         uses: ./.github/actions/lockfile-nesting-check # zizmor: ignore[self-repository]
         with:
@@ -193,6 +203,13 @@ jobs:
         with:
           working-directory: test/fixtures/package-contents-check/fail
 
+      - name: lint-allowlist-check (must fail)
+        id: lint-allowlist-check
+        continue-on-error: true
+        uses: ./.github/actions/lint-allowlist-check # zizmor: ignore[self-repository]
+        with:
+          working-directory: test/fixtures/lint-allowlist-check/fail
+
       - name: lockfile-nesting-check (must fail)
         id: lockfile-nesting-check
         continue-on-error: true
@@ -249,6 +266,7 @@ jobs:
           AUDIT_CHECK: ${{ steps.audit-check.outcome }}
           LICENCE_CHECK: ${{ steps.licence-check.outcome }}
           PACKAGE_CONTENTS_CHECK: ${{ steps.package-contents-check.outcome }}
+          LINT_ALLOWLIST_CHECK: ${{ steps.lint-allowlist-check.outcome }}
           LOCKFILE_NESTING_CHECK: ${{ steps.lockfile-nesting-check.outcome }}
           DEPENDABOT_REVIEW_FACTS: ${{ steps.dependabot-review-facts.outcome }}
           DEPENDABOT_REVIEW: ${{ steps.dependabot-review.outcome }}
@@ -257,7 +275,7 @@ jobs:
           BASELINE_CHECK: ${{ steps.baseline-check.outcome }}
         run: |
           status=0
-          for name in COVERAGE_RATCHET AUDIT_CHECK LICENCE_CHECK PACKAGE_CONTENTS_CHECK LOCKFILE_NESTING_CHECK DEPENDABOT_REVIEW_FACTS DEPENDABOT_REVIEW DOCS_CHECK NODE_PATCH_CHECK BASELINE_CHECK; do
+          for name in COVERAGE_RATCHET AUDIT_CHECK LICENCE_CHECK PACKAGE_CONTENTS_CHECK LINT_ALLOWLIST_CHECK LOCKFILE_NESTING_CHECK DEPENDABOT_REVIEW_FACTS DEPENDABOT_REVIEW DOCS_CHECK NODE_PATCH_CHECK BASELINE_CHECK; do
             if [ "${!name}" != failure ]; then
               echo "::error::The fixture for ${name} that must fail ended in '${!name}'."
               status=1

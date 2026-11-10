@@ -1,0 +1,9 @@
+{
+  "name": "lint-allowlist-check-fixtures",
+  "private": true,
+  "type": "module",
+  "description": "The project that the lint-allowlist-check fixtures lint. CI installs its ESLint with npm ci.",
+  "devDependencies": {
+    "eslint": "10.14.0"
+  }
+}
