@@ -175,6 +175,15 @@ jobs:
           grep -q 'shared-workflows:dependabot-review' "$COMMENT"
           grep -q 'Verdict: merge' "$COMMENT"
 
+      # This repository's own run (in test) passes the default GitHub list.
+      # The fixture proves that forge and stacks get to the script.
+      - name: baseline-check, a Forgejo gitops-config repository
+        uses: ./.github/actions/baseline-check # zizmor: ignore[self-repository]
+        with:
+          forge: forgejo
+          stacks: gitops-config
+          working-directory: test/fixtures/baseline-check/forgejo
+
       - name: coverage-ratchet (must fail)
         id: coverage-ratchet
         continue-on-error: true

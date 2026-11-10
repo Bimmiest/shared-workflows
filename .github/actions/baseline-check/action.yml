@@ -1,16 +1,29 @@
 name: Baseline check
 description: >-
-  Fails when a repository lacks a file that each repository made from
-  repo-template has: the governance files, the issue forms, the workflows,
-  the scanner and check configs, the docs index and the six topic files, and
-  the Node toolchain files where there is a package-lock.json. A file that a
-  repository omits on purpose is excepted in `.baseline-exceptions.json`,
-  with its reason; an exception that is no longer needed fails. Needs Node on
-  the PATH and no install.
+  Fails when a repository lacks a file of the baseline standard
+  (repo-template docs/standard.md): the core set of its forge (the
+  governance files, the issue forms, the workflows, the scanner and check
+  configs), the documentation layer for a stack with code, and the Node
+  toolchain files for node-ts. A file that a repository omits on purpose is
+  excepted in `.baseline-exceptions.json`, with its reason; an exception
+  that is no longer needed fails. Needs Node on the PATH and no install.
 inputs:
   config:
     description: Optional JSON with `exceptions` (`{ file, reason }`).
     default: .baseline-exceptions.json
+  forge:
+    description: >-
+      `github` or `forgejo`. It selects the core set: the forge folder, the
+      update bot, and the files that only one forge has.
+    default: github
+  stacks:
+    description: >-
+      The stacks of the repository, space-separated: node-ts, rust,
+      opentofu-ansible, container-image, gitops-config or docs-only. The
+      documentation layer applies to node-ts, rust and opentofu-ansible, and
+      the Node files to node-ts. Empty: the documentation layer, and the Node
+      files where there is a package-lock.json.
+    default: ''
   working-directory:
     description: The repository root.
     default: .
@@ -22,5 +35,7 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       env:
         CONFIG: ${{ inputs.config }}
+        FORGE: ${{ inputs.forge }}
+        STACKS: ${{ inputs.stacks }}
         SCRIPT: ${{ github.action_path }}/baseline-check.mjs
-      run: node "$SCRIPT" --config "$CONFIG"
+      run: node "$SCRIPT" --config "$CONFIG" --forge "$FORGE" --stacks "$STACKS"
