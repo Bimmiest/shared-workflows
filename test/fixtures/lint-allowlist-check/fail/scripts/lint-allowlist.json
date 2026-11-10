@@ -1,0 +1,6 @@
+{
+  "$comment": "Says 1 where no-console finds 2, so the check must fail.",
+  "files": {
+    "src/a.js": { "no-console": 1, "no-restricted-syntax": 1 }
+  }
+}

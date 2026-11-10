@@ -45,6 +45,7 @@ the `PATH` of the runner, and they need Node 22 or later.
 | [`dependabot-review`](../.github/actions/dependabot-review/action.yml) | Sends the facts to the Messages API, and writes one comment on the pull request with a verdict and its reasons. The verdict is advice, and the step fails only when it cannot write the comment. [consuming.md](consuming.md#run-the-advisory-dependabot-review) has the workflow. | A federation rule and `id-token: write`, or an `api-key` secret. `pull-requests: write` |
 | [`lockfile-nesting-check`](../.github/actions/lockfile-nesting-check/action.yml) | Warns, or fails with `level: fail`, when a pull request adds a nested copy of a package to the lockfile, and names the versions at the top level and in the copy. It needs the base: `fetch-depth: 2`, or the `base` input. | `package-lock.json` |
 | [`package-contents-check`](../.github/actions/package-contents-check/action.yml) | Fails when `npm pack` leaves out a path that must ship, or ships a path that must not. The required paths are exact, and the forbidden ones are regular expressions. | `.package-contents.json` |
+| [`lint-allowlist-check`](../.github/actions/lint-allowlist-check/action.yml) | Fails when a count in the lint allowlist is not what its rule finds. It lints each listed file with its listed rules on again, through the caller's ESLint. A higher count is new code, and a lower count is a fix that must lower the number. Run it after `npm ci`. | `scripts/lint-allowlist.json`, `eslint.config.js` |
 | [`pr-hygiene`](../.github/actions/pr-hygiene/action.yml) | Fails when the branch is not `<type>/<short-description>-<issue>`, or the description does not link the issue. The `no-issue` label and `dependabot[bot]` are exempt. | The `pull_request` event |
 | [`changelog-check`](../.github/actions/changelog-check/action.yml) | Fails when a pull request changes a file in `paths` and does not change `CHANGELOG.md`. Tests are ignored. The `no-changelog` label and `dependabot[bot]` are exempt. | The files of the pull request. On a private repository the job needs `pull-requests: read` |
 | [`docs-check`](../.github/actions/docs-check/action.yml) | Fails on a relative Markdown link that does not resolve. Fails when the ADR index does not agree with `docs/adr/`, is not in order, or does not explain a gap. Fails when a root `LICENSE-*` file is not in the README. With `readmeMaxLines`, fails on a longer README. With `maxLines`, fails on each Markdown file that is longer than the first rule that matches it, less the files that `maxLinesExceptions` caps until a date. With `docTypes`, fails on a topic file whose frontmatter has no allowed `type`. With `docsIndex`, fails when the index of `docs/` has no row for a topic file, a row for no file, or rows out of path order. With `ste`, warns on each word that ASD-STE100 does not allow, in the files that `ste` names. | The Markdown files, `.docs-check.json` if it exists |
@@ -69,10 +70,10 @@ the `PATH` of the runner, and they need Node 22 or later.
 
 ## The commands behind the actions
 
-Thirteen actions run a script that is also a command. `npm` installs these
+Fourteen actions run a script that is also a command. `npm` installs these
 `bin` names: `audit-check`, `baseline-check`, `changelog-check`,
 `coverage-ratchet`, `dependabot-review`, `dependabot-review-facts`,
-`docs-check`, `licence-check`, `lockfile-nesting-check`, `node-patch-check`,
+`docs-check`, `licence-check`, `lint-allowlist-check`, `lockfile-nesting-check`, `node-patch-check`,
 `package-contents-check`, `pr-hygiene` and `repo-settings-check`. The arguments of a command are the same as the
 arguments that the action gives. [consuming.md](consuming.md) tells you how
 to run them.

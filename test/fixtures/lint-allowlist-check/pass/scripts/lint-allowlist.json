@@ -1,0 +1,5 @@
+{
+  "files": {
+    "src/a.js": { "no-console": 2, "no-restricted-syntax": 1 }
+  }
+}

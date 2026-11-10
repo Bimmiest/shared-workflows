@@ -7,6 +7,20 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+## 1.11.0 — 2026-11-10
+
+### Added
+
+- **`lint-allowlist-check`**, a new action
+  ([#38](https://github.com/Bimmiest/shared-workflows/issues/38)). A
+  repository that adopts a lint rule over existing code lists the findings
+  of that day in `scripts/lint-allowlist.json`, by file and by rule, and its
+  `eslint.config.js` turns those rules off for those files. The action lints
+  the listed files with the rules on again, through the caller's own ESLint,
+  and fails when a count is higher or lower than the list. Run it after
+  `npm ci`. A rule keeps the options that the config gives it, so
+  `no-restricted-syntax` keeps its selectors.
+
 ## 1.10.0 — 2026-11-10
 
 ### Added
