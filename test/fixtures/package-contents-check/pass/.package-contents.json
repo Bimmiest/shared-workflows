@@ -1,0 +1,4 @@
+{
+  "required": ["LICENSE", "index.js", "package.json"],
+  "forbidden": ["\\.test\\.js$"]
+}

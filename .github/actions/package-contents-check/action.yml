@@ -1,0 +1,23 @@
+name: Package contents check
+description: >-
+  The package ships each path that it must and none that it must not, as
+  `npm pack --dry-run` lists them. A git-dependency install and an npm install
+  get exactly that list, so a `files` entry that drops a licence file, or that
+  ships the tests, fails here and nowhere else.
+inputs:
+  config:
+    description: The file with the `required` paths and the `forbidden` patterns.
+    default: .package-contents.json
+  working-directory:
+    description: Where the package and the config file are.
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: What the package ships
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        CONFIG: ${{ inputs.config }}
+        SCRIPT: ${{ github.action_path }}/package-contents-check.mjs
+      run: node "$SCRIPT" --config "$CONFIG"

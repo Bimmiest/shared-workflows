@@ -16,6 +16,12 @@ says what a consumer gets when it bumps its pin.
   With `warn-only`, it only warns. The default is `0`, which turns it off, so
   no consumer gets a new failure from the bump. Set `eol-days: 90` to turn it
   on.
+- **`package-contents-check`**
+  ([#36](https://github.com/Bimmiest/shared-workflows/issues/36)). A new
+  action, and a command with the same name. It fails when `npm pack` would
+  leave out a path that `.package-contents.json` requires, or would ship a
+  path that a pattern there forbids. Use it in a repository that ships a
+  package. A git-dependency install gets the same files.
 
 ## 1.7.1 — 2026-10-28
 
