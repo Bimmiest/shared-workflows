@@ -7,6 +7,16 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+### Added
+
+- **`lockfile-nesting-check`**
+  ([#80](https://github.com/Bimmiest/shared-workflows/issues/80)). A new
+  action, and a command with the same name. It reports each nested copy of a
+  package that a pull request adds to a lockfile, with the version at the top
+  level and the nested version, and says to run `npm dedupe`. It warns by
+  default; set `level: fail` to fail the step. It reads the base lockfile at
+  `HEAD^1`, so check out with `fetch-depth: 2`, or pass `base`.
+
 ## 1.8.0 — 2026-11-10
 
 ### Added

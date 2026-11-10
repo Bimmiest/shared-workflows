@@ -1,0 +1,42 @@
+name: Lockfile nesting check
+description: >-
+  A pull request adds no nested copy of a package to the lockfile: a key such
+  as `node_modules/a/node_modules/b`, or `packages/x/node_modules/b` while the
+  root has `b`. A nested copy means the top level cannot take that version,
+  and `npm ci` then installs it with a peer dependency that may not be
+  satisfied. Warns by default. Needs the base: check out with
+  `fetch-depth: 2`, or pass `base`.
+inputs:
+  lockfile:
+    description: The lockfile to read. Run the action once for each lockfile.
+    default: package-lock.json
+  base:
+    description: The base version of the lockfile, as a file. When it is empty, the action reads the lockfile at `base-ref`.
+    default: ''
+  base-ref:
+    description: The git revision of the base. In a pull request's merge checkout, `HEAD^1` is the base branch.
+    default: HEAD^1
+  level:
+    description: '`warn` annotates and passes; `fail` fails the step.'
+    default: warn
+  working-directory:
+    description: Where the paths are resolved from.
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: No new nested copy in the lockfile
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        LOCKFILE: ${{ inputs.lockfile }}
+        BASE: ${{ inputs.base }}
+        BASE_REF: ${{ inputs.base-ref }}
+        LEVEL: ${{ inputs.level }}
+        SCRIPT: ${{ github.action_path }}/lockfile-nesting.mjs
+      run: |
+        if [ -n "$BASE" ]; then
+          node "$SCRIPT" --lockfile "$LOCKFILE" --base "$BASE" --level "$LEVEL"
+        else
+          node "$SCRIPT" --lockfile "$LOCKFILE" --base-ref "$BASE_REF" --level "$LEVEL"
+        fi
