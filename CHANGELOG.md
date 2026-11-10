@@ -16,6 +16,14 @@ says what a consumer gets when it bumps its pin.
   level and the nested version, and says to run `npm dedupe`. It warns by
   default; set `level: fail` to fail the step. It reads the base lockfile at
   `HEAD^1`, so check out with `fetch-depth: 2`, or pass `base`.
+- **`dependabot-review-facts` and `dependabot-review`**
+  ([#81](https://github.com/Bimmiest/shared-workflows/issues/81)). Two new
+  actions that give a Dependabot pull request one comment with advice: what
+  in the release notes can break the places that use each package. The first
+  runs with no secret and collects the facts; the second holds the API key,
+  does not check out the pull request, and asks `claude-opus-5-5`. The verdict
+  is never a check result. `docs/consuming.md` has the workflow and the key
+  setup.
 
 ## 1.8.0 — 2026-11-10
 

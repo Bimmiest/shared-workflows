@@ -1,0 +1,32 @@
+name: Dependabot review facts
+description: >-
+  The facts of a dependency update, as a JSON file, for dependabot-review: the
+  packages whose version changed, a 0.x minor move, each new nested copy, where
+  the repository names each package, and the pull request's title and body.
+  Runs in a job with no secret, on the pull request's checkout, and runs
+  nothing from it. Needs the base: check out with `fetch-depth: 2`.
+inputs:
+  lockfile:
+    description: The lockfile to read.
+    default: package-lock.json
+  base-ref:
+    description: The git revision of the base. In a pull request's merge checkout, `HEAD^1` is the base branch.
+    default: HEAD^1
+  out:
+    description: The JSON file to write. Upload it as an artifact for the review job.
+    default: dependabot-review-facts.json
+  working-directory:
+    description: Where the paths are resolved from.
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: Collect the facts of the update
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        LOCKFILE: ${{ inputs.lockfile }}
+        BASE_REF: ${{ inputs.base-ref }}
+        OUT: ${{ inputs.out }}
+        SCRIPT: ${{ github.action_path }}/facts.mjs
+      run: node "$SCRIPT" --lockfile "$LOCKFILE" --base-ref "$BASE_REF" --out "$OUT"

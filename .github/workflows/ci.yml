@@ -111,6 +111,44 @@ jobs:
           level: fail
           working-directory: test/fixtures/lockfile-nesting-check/pass
 
+      - name: dependabot-review-facts
+        uses: ./.github/actions/dependabot-review-facts # zizmor: ignore[self-repository]
+        with:
+          # The fixture's lockfile against itself: no change, and no need for HEAD^1.
+          base-ref: HEAD
+          out: ${{ runner.temp }}/facts.json
+          working-directory: test/fixtures/project
+
+      # A stand-in for the Messages API, so the review runs with no key and
+      # no cost: /good answers with a verdict, /bad with a server error.
+      - name: Start a stand-in for the Messages API
+        run: |
+          node -e '
+            const reply = { model: "claude-opus-5-5", stop_reason: "end_turn",
+              content: [{ type: "text", text: JSON.stringify({ verdict: "merge", reasons: [{ text: "Nothing breaks.", file: null }] }) }] };
+            require("node:http").createServer((req, res) => {
+              const good = req.url === "/good/v1/messages";
+              res.writeHead(good ? 200 : 500, { "content-type": "application/json" });
+              res.end(JSON.stringify(good ? reply : { error: { type: "api_error" } }));
+            }).listen(8787);
+          ' &
+          for _ in $(seq 1 20); do curl -s -o /dev/null http://127.0.0.1:8787/ && break; sleep 0.25; done
+
+      - name: dependabot-review
+        uses: ./.github/actions/dependabot-review # zizmor: ignore[self-repository]
+        with:
+          api-key: not-a-secret
+          facts: ${{ runner.temp }}/facts.json
+          api-url: http://127.0.0.1:8787/good
+          comment-file: ${{ runner.temp }}/comment.md
+
+      - name: The review wrote its comment
+        env:
+          COMMENT: ${{ runner.temp }}/comment.md
+        run: |
+          grep -q 'shared-workflows:dependabot-review' "$COMMENT"
+          grep -q 'Verdict: merge' "$COMMENT"
+
       - name: coverage-ratchet (must fail)
         id: coverage-ratchet
         continue-on-error: true
@@ -148,6 +186,25 @@ jobs:
           level: fail
           working-directory: test/fixtures/lockfile-nesting-check/fail
 
+      - name: dependabot-review-facts (must fail)
+        id: dependabot-review-facts
+        continue-on-error: true
+        uses: ./.github/actions/dependabot-review-facts # zizmor: ignore[self-repository]
+        with:
+          lockfile: no-such-lockfile.json
+          out: ${{ runner.temp }}/no-facts.json
+          working-directory: test/fixtures/project
+
+      - name: dependabot-review (must fail)
+        id: dependabot-review
+        continue-on-error: true
+        uses: ./.github/actions/dependabot-review # zizmor: ignore[self-repository]
+        with:
+          api-key: not-a-secret
+          facts: ${{ runner.temp }}/facts.json
+          api-url: http://127.0.0.1:8787/bad
+          comment-file: ${{ runner.temp }}/no-comment.md
+
       - name: docs-check (must fail)
         id: docs-check
         continue-on-error: true
@@ -177,12 +234,14 @@ jobs:
           LICENCE_CHECK: ${{ steps.licence-check.outcome }}
           PACKAGE_CONTENTS_CHECK: ${{ steps.package-contents-check.outcome }}
           LOCKFILE_NESTING_CHECK: ${{ steps.lockfile-nesting-check.outcome }}
+          DEPENDABOT_REVIEW_FACTS: ${{ steps.dependabot-review-facts.outcome }}
+          DEPENDABOT_REVIEW: ${{ steps.dependabot-review.outcome }}
           DOCS_CHECK: ${{ steps.docs-check.outcome }}
           NODE_PATCH_CHECK: ${{ steps.node-patch-check.outcome }}
           BASELINE_CHECK: ${{ steps.baseline-check.outcome }}
         run: |
           status=0
-          for name in COVERAGE_RATCHET AUDIT_CHECK LICENCE_CHECK PACKAGE_CONTENTS_CHECK LOCKFILE_NESTING_CHECK DOCS_CHECK NODE_PATCH_CHECK BASELINE_CHECK; do
+          for name in COVERAGE_RATCHET AUDIT_CHECK LICENCE_CHECK PACKAGE_CONTENTS_CHECK LOCKFILE_NESTING_CHECK DEPENDABOT_REVIEW_FACTS DEPENDABOT_REVIEW DOCS_CHECK NODE_PATCH_CHECK BASELINE_CHECK; do
             if [ "${!name}" != failure ]; then
               echo "::error::The fixture for ${name} that must fail ended in '${!name}'."
               status=1

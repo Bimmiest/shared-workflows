@@ -63,6 +63,73 @@ versions in one repository give two sets of rules.
 - **The files that a check reads.** [catalogue.md](catalogue.md) names them.
   Each file is optional, except where the catalogue says otherwise.
 
+## Run the advisory Dependabot review
+
+`dependabot-review-facts` and `dependabot-review` give each Dependabot pull
+request one comment with advice: what in the release notes can break the
+places that use each package. The comment is never a check result, and
+nothing merges because of it. Use two jobs, so that the API key and the
+code of the pull request are never in one job:
+
+```yaml
+name: Dependabot review
+on:
+  pull_request:
+    types: [opened, reopened, labeled]
+permissions: {}
+concurrency:
+  group: dependabot-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  facts:
+    if: github.event.pull_request.user.login == 'dependabot[bot]' || contains(github.event.pull_request.labels.*.name, 'claude-review')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@<sha> # vX.Y.Z
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-node@<sha> # vX.Y.Z
+        with:
+          node-version-file: .nvmrc
+      - uses: Bimmiest/shared-workflows/.github/actions/dependabot-review-facts@<sha> # vX.Y.Z
+      - uses: actions/upload-artifact@<sha> # vX.Y.Z
+        with:
+          name: dependabot-review-facts
+          path: dependabot-review-facts.json
+  review:
+    needs: facts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/setup-node@<sha> # vX.Y.Z
+        with:
+          node-version: lts/*
+      - uses: actions/download-artifact@<sha> # vX.Y.Z
+        with:
+          name: dependabot-review-facts
+      - uses: Bimmiest/shared-workflows/.github/actions/dependabot-review@<sha> # vX.Y.Z
+        with:
+          api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+- **The key.** Make an API key in an Anthropic workspace that is only for CI,
+  and give the workspace a monthly spend limit. Store it as a Dependabot
+  secret named `ANTHROPIC_API_KEY`: a workflow that Dependabot starts gets
+  only Dependabot secrets. For the `claude-review` label on other pull
+  requests, store it as an Actions secret too. A pull request from a fork
+  gets no secret, so its review job fails and nothing leaks.
+- **The review job does not check out the pull request.** It reads the facts
+  artifact, which the job with no secret wrote, as data. Do not add a
+  checkout or an install to that job.
+- **The cost.** One request for each pull request, on `claude-opus-5-5` by
+  default. Set `model` to change it.
+
 ## Run a check on your own machine
 
 The scripts take the same arguments as the actions. Use one of two methods.
