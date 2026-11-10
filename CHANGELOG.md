@@ -7,6 +7,20 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+## 1.12.0 — 2026-11-10
+
+### Added
+
+- **`forge` and `stacks` in `baseline-check`**
+  ([#67](https://github.com/Bimmiest/shared-workflows/issues/67)). The
+  lists are now the core set and the stack layers of repo-template's
+  `docs/standard.md`. With `forge: forgejo`, the core set is in `.forgejo/`,
+  with `renovate.json` and the tech-debt issue form, and with no `LICENSE`,
+  Dependabot, Scorecard or settings files. `stacks` names the stacks of the
+  repository: the docs index and the six topic files apply only to
+  `node-ts`, `rust` and `opentofu-ansible`, and the Node files only to
+  `node-ts`. With the defaults, the list does not change.
+
 ## 1.11.0 — 2026-11-10
 
 ### Added
