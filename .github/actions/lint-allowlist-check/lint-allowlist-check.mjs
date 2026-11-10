@@ -42,7 +42,7 @@ export function parseAllowlist(text, file = DEFAULT_ALLOWLIST) {
 
 /** The path as a glob that matches only itself: `files` takes a glob, and `[id]` is a character class. */
 export function literal(file) {
-  return file.replace(/[[\]{}()*?!+@]/g, '\\$&');
+  return file.replace(/[\\[\]{}()*?!+@]/g, '\\$&');
 }
 
 /** One config block per file, with its listed rules on again. */

@@ -49,6 +49,8 @@ describe('parseAllowlist', () => {
 describe('literal and overrides', () => {
   it('escapes the characters that make a path a glob', () => {
     assert.equal(literal('src/routes/[id]/+page.ts'), 'src/routes/\\[id\\]/\\+page.ts');
+    // The escape character first, or a backslash in the name would escape what follows it.
+    assert.equal(literal('src/a\\b.ts'), 'src/a\\\\b.ts');
   });
 
   it('turns each listed rule on again with a severity alone, so its options stay', () => {
