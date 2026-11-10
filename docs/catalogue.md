@@ -41,6 +41,7 @@ the `PATH` of the runner, and they need Node 22 or later.
 | [`coverage-ratchet`](../.github/actions/coverage-ratchet/action.yml) | Fails when a Vitest coverage floor is more than `slack` points below the measurement. The floors for each glob are included. It prints the block to write. | `vitest.config.ts`, `coverage/coverage-summary.json` |
 | [`audit-check`](../.github/actions/audit-check/action.yml) | Runs `npm audit --omit=dev`, and fails at `high`. Each exception has a reason and an expiry. An exception that has expired, or that no advisory needs, fails. | `.audit-exceptions.json` |
 | [`licence-check`](../.github/actions/licence-check/action.yml) | Fails when the licence of a production dependency is not on the allowlist. It reads the `license` fields of the lockfile, and installs nothing. | `.licence-allowlist.json`, `package-lock.json` |
+| [`lockfile-nesting-check`](../.github/actions/lockfile-nesting-check/action.yml) | Warns, or fails with `level: fail`, when a pull request adds a nested copy of a package to the lockfile, and names the versions at the top level and in the copy. It needs the base: `fetch-depth: 2`, or the `base` input. | `package-lock.json` |
 | [`package-contents-check`](../.github/actions/package-contents-check/action.yml) | Fails when `npm pack` leaves out a path that must ship, or ships a path that must not. The required paths are exact, and the forbidden ones are regular expressions. | `.package-contents.json` |
 | [`pr-hygiene`](../.github/actions/pr-hygiene/action.yml) | Fails when the branch is not `<type>/<short-description>-<issue>`, or the description does not link the issue. The `no-issue` label and `dependabot[bot]` are exempt. | The `pull_request` event |
 | [`changelog-check`](../.github/actions/changelog-check/action.yml) | Fails when a pull request changes a file in `paths` and does not change `CHANGELOG.md`. Tests are ignored. The `no-changelog` label and `dependabot[bot]` are exempt. | The files of the pull request. On a private repository the job needs `pull-requests: read` |
@@ -66,9 +67,10 @@ the `PATH` of the runner, and they need Node 22 or later.
 
 ## The commands behind the actions
 
-Ten actions run a script that is also a command. `npm` installs these
+Eleven actions run a script that is also a command. `npm` installs these
 `bin` names: `audit-check`, `baseline-check`, `changelog-check`,
-`coverage-ratchet`, `docs-check`, `licence-check`, `node-patch-check`,
-`package-contents-check`, `pr-hygiene` and `repo-settings-check`. The
-arguments of a command are the same as the arguments that the action gives. [consuming.md](consuming.md) tells you
-how to run them.
+`coverage-ratchet`, `docs-check`, `licence-check`, `lockfile-nesting-check`,
+`node-patch-check`, `package-contents-check`, `pr-hygiene` and
+`repo-settings-check`. The arguments of a command are the same as the
+arguments that the action gives. [consuming.md](consuming.md) tells you how
+to run them.

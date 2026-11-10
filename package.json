@@ -23,6 +23,7 @@
     "coverage-ratchet": ".github/actions/coverage-ratchet/ratchet.mjs",
     "docs-check": ".github/actions/docs-check/docs-check.mjs",
     "licence-check": ".github/actions/licence-check/licence-check.mjs",
+    "lockfile-nesting-check": ".github/actions/lockfile-nesting-check/lockfile-nesting.mjs",
     "node-patch-check": ".github/actions/node-patch-check/node-patch.mjs",
     "package-contents-check": ".github/actions/package-contents-check/package-contents-check.mjs",
     "pr-hygiene": ".github/actions/pr-hygiene/pr-hygiene.mjs",
