@@ -7,6 +7,8 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+## 1.8.0 — 2026-11-10
+
 ### Added
 
 - **`node-patch-check` has an `eol-days` input**
