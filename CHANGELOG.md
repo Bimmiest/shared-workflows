@@ -7,6 +7,8 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+## 1.9.0 — 2026-11-10
+
 ### Added
 
 - **`lockfile-nesting-check`**
