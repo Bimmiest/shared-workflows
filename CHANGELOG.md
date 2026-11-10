@@ -7,6 +7,21 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+## 1.10.0 — 2026-11-10
+
+### Added
+
+- **Workload identity federation in `dependabot-review`**
+  ([#91](https://github.com/Bimmiest/shared-workflows/issues/91)). The new
+  inputs `federation-rule-id`, `organization-id`, `service-account-id` and
+  `workspace-id` make the step exchange the job's GitHub identity token for a
+  short-lived access token, so no API key is stored. The job needs
+  `id-token: write`. `api-key` is now optional: with a rule, it is the
+  fallback when the exchange fails, with a warning. The step logs which
+  credential it used, and the input and output tokens of the request.
+  [consuming.md](docs/consuming.md#run-the-advisory-dependabot-review) has
+  the rule and the workflow, which now skips GitHub Actions updates.
+
 ## 1.9.0 — 2026-11-10
 
 ### Added

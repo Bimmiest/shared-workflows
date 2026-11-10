@@ -68,7 +68,7 @@ versions in one repository give two sets of rules.
 `dependabot-review-facts` and `dependabot-review` give each Dependabot pull
 request one comment with advice: what in the release notes can break the
 places that use each package. The comment is never a check result, and
-nothing merges because of it. Use two jobs, so that the API key and the
+nothing merges because of it. Use two jobs, so that the credential and the
 code of the pull request are never in one job:
 
 ```yaml
@@ -82,7 +82,9 @@ concurrency:
   cancel-in-progress: true
 jobs:
   facts:
-    if: github.event.pull_request.user.login == 'dependabot[bot]' || contains(github.event.pull_request.labels.*.name, 'claude-review')
+    if: >-
+      (github.event.pull_request.user.login == 'dependabot[bot]' || contains(github.event.pull_request.labels.*.name, 'claude-review'))
+      && !startsWith(github.head_ref, 'dependabot/github_actions/')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -105,6 +107,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      id-token: write
       pull-requests: write
     steps:
       - uses: actions/setup-node@<sha> # vX.Y.Z
@@ -115,20 +118,37 @@ jobs:
           name: dependabot-review-facts
       - uses: Bimmiest/shared-workflows/.github/actions/dependabot-review@<sha> # vX.Y.Z
         with:
-          api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          federation-rule-id: fdrl_...
+          organization-id: <organization ID>
+          service-account-id: svac_...
 ```
 
-- **The key.** Make an API key in an Anthropic workspace that is only for CI,
-  and give the workspace a monthly spend limit. Store it as a Dependabot
-  secret named `ANTHROPIC_API_KEY`: a workflow that Dependabot starts gets
-  only Dependabot secrets. For the `claude-review` label on other pull
-  requests, store it as an Actions secret too. A pull request from a fork
-  gets no secret, so its review job fails and nothing leaks.
+- **The credential.** Use workload identity federation, so that no key is
+  stored: the job exchanges its GitHub identity token for an access token
+  that expires in minutes. In the Claude Console, use an Anthropic workspace
+  that is only for CI, with a monthly spend limit. Make a service account in
+  it, and a federation rule for the issuer
+  `https://token.actions.githubusercontent.com`, with the subject prefix
+  `repo:<owner>/<repo>:pull_request`, the audience `https://api.anthropic.com`,
+  and the claims `repository_owner` and `workflow`. The IDs are not secrets.
+  A pull request from a fork gets no identity token, so nothing leaks.
+- **The fallback.** `api-key` takes an API key from the same workspace. With
+  a federation rule, the step uses the key only when the exchange fails, and
+  gives a warning. The Console's authentication history says why. Store the
+  key as a Dependabot secret named `ANTHROPIC_API_KEY`: a workflow that
+  Dependabot starts gets only Dependabot secrets. Delete the key when a run on
+  a Dependabot pull request says `Authenticated with workload identity
+  federation`.
+- **No review of a GitHub Actions update.** That pull request changes the
+  workflow, and its run uses the changed file. A run on that branch puts the
+  new, unreviewed actions in the job with the credential, so the `facts` job
+  skips the branch.
 - **The review job does not check out the pull request.** It reads the facts
   artifact, which the job with no secret wrote, as data. Do not add a
   checkout or an install to that job.
 - **The cost.** One request for each pull request, on `claude-opus-5-5` by
-  default. Set `model` to change it.
+  default. Set `model` to change it. The step logs the input and output
+  tokens.
 
 ## Run a check on your own machine
 

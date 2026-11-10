@@ -4,12 +4,24 @@ description: >-
   the release notes against where the repository uses each package, and one
   comment on the pull request with its verdict. The verdict is never a check
   result, and the step fails only when it cannot write the comment. Run it in a
-  job that holds the API key and does not check out the pull request; the
+  job that holds the credential and does not check out the pull request; the
   facts come from dependabot-review-facts as an artifact.
 inputs:
   api-key:
-    description: An Anthropic API key, from a secret. Use a key from a workspace that is only for CI, with a monthly spend limit.
-    required: true
+    description: An Anthropic API key, from a secret, when there is no federation rule, or as its fallback. Use a key from a workspace that is only for CI, with a monthly spend limit.
+    default: ''
+  federation-rule-id:
+    description: 'A workload identity federation rule (`fdrl_...`). With the organization and the service account, the job exchanges its GitHub identity token for a short-lived access token, and needs `id-token: write`.'
+    default: ''
+  organization-id:
+    description: The Anthropic organization ID, for federation.
+    default: ''
+  service-account-id:
+    description: The service account (`svac_...`) that the federation rule targets.
+    default: ''
+  workspace-id:
+    description: The workspace (`wrkspc_...`), when the federation rule covers more than one.
+    default: ''
   facts:
     description: The JSON file that dependabot-review-facts wrote.
     default: dependabot-review-facts.json
@@ -36,6 +48,10 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       env:
         ANTHROPIC_API_KEY: ${{ inputs.api-key }}
+        ANTHROPIC_FEDERATION_RULE_ID: ${{ inputs.federation-rule-id }}
+        ANTHROPIC_ORGANIZATION_ID: ${{ inputs.organization-id }}
+        ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ inputs.service-account-id }}
+        ANTHROPIC_WORKSPACE_ID: ${{ inputs.workspace-id }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
         FACTS: ${{ inputs.facts }}
         MODEL: ${{ inputs.model }}

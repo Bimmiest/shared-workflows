@@ -2,13 +2,20 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, it } from 'node:test';
-import { buildRequest, isResult, MARKER, parseReply, renderComment, run, sanitize, SCHEMA, upsertComment } from './review.mjs';
+import { afterEach, describe, it, mock } from 'node:test';
+import { buildRequest, credential, federatedToken, isResult, MARKER, parseReply, renderComment, run, sanitize, SCHEMA, upsertComment } from './review.mjs';
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
   globalThis.fetch = realFetch;
+  mock.restoreAll();
 });
+
+/** What the script logs, from here on. */
+function captureLog() {
+  return mock.method(console, 'log', () => {}).mock;
+}
+const logged = (log) => log.calls.map((c) => c.arguments.join(' ')).join('\n');
 
 /** A fetch that answers each call from `answers` in turn, and records the calls. */
 function stubFetch(answers) {
@@ -30,7 +37,7 @@ const facts = {
 
 describe('buildRequest', () => {
   it('pins the model, asks for the schema, opts into fallbacks, and sends the facts as data', () => {
-    const { headers, body } = buildRequest(facts, { model: 'claude-opus-5-5', prompt: 'P', apiKey: 'k' });
+    const { headers, body } = buildRequest(facts, { model: 'claude-opus-5-5', prompt: 'P', auth: { 'x-api-key': 'k' } });
     assert.equal(headers['x-api-key'], 'k');
     assert.equal(headers['anthropic-version'], '2026-10-21');
     assert.equal(headers['anthropic-beta'], 'server-side-fallback-2026-07-01');
@@ -39,6 +46,61 @@ describe('buildRequest', () => {
     assert.equal(body.system, 'P');
     assert.deepEqual(body.output_config, { effort: 'medium', format: { type: 'json_schema', schema: SCHEMA } });
     assert.equal(body.messages[0].content, `<facts>\n${JSON.stringify(facts)}\n</facts>`);
+  });
+});
+
+const rule = { ruleId: 'fdrl_1', organizationId: 'org', serviceAccountId: 'svac_1' };
+const jobEnv = { ACTIONS_ID_TOKEN_REQUEST_URL: 'https://gh.test/token?api-version=2.0', ACTIONS_ID_TOKEN_REQUEST_TOKEN: 'rt' };
+
+describe('federatedToken', () => {
+  it('asks GitHub for a token for the API audience, and exchanges it for an access token', async () => {
+    const calls = stubFetch([{ body: { value: 'jwt' } }, { body: { access_token: 'sk-ant-oat01-x', expires_in: 600 } }]);
+    assert.equal(await federatedToken(rule, { apiUrl: 'https://api.test', env: jobEnv }), 'sk-ant-oat01-x');
+    assert.equal(calls[0].url, 'https://gh.test/token?api-version=2.0&audience=https%3A%2F%2Fapi.anthropic.com');
+    assert.equal(calls[0].headers.authorization, 'Bearer rt');
+    assert.equal(calls[1].url, 'https://api.test/v1/oauth/token');
+    assert.deepEqual(JSON.parse(calls[1].body), {
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: 'jwt',
+      federation_rule_id: 'fdrl_1',
+      organization_id: 'org',
+      service_account_id: 'svac_1',
+    });
+  });
+
+  it('names the workspace only when it is set', async () => {
+    const calls = stubFetch([{ body: { value: 'jwt' } }, { body: { access_token: 't' } }]);
+    await federatedToken({ ...rule, workspaceId: 'wrkspc_1' }, { apiUrl: 'https://api.test', env: jobEnv });
+    assert.equal(JSON.parse(calls[1].body).workspace_id, 'wrkspc_1');
+  });
+
+  it('throws with half a rule, with no identity token, or when an answer has no token', async () => {
+    await assert.rejects(federatedToken({ ruleId: 'fdrl_1' }, { apiUrl: 'https://api.test', env: jobEnv }), /organization and the service account/);
+    await assert.rejects(federatedToken(rule, { apiUrl: 'https://api.test', env: {} }), /id-token: write/);
+    stubFetch([{ body: {} }]);
+    await assert.rejects(federatedToken(rule, { apiUrl: 'https://api.test', env: jobEnv }), /no identity token/);
+    stubFetch([{ body: { value: 'jwt' } }, { body: {} }]);
+    await assert.rejects(federatedToken(rule, { apiUrl: 'https://api.test', env: jobEnv }), /no access token/);
+    stubFetch([{ body: { value: 'jwt' } }, { status: 401, body: { error: { type: 'authentication_error' } } }]);
+    await assert.rejects(federatedToken(rule, { apiUrl: 'https://api.test', env: jobEnv }), /token exchange answered 401 \(authentication_error\)/);
+  });
+});
+
+describe('credential', () => {
+  it('sends the access token when federation works, and the key when there is no rule', async () => {
+    const log = captureLog();
+    stubFetch([{ body: { value: 'jwt' } }, { body: { access_token: 't' } }]);
+    assert.deepEqual(await credential({ federation: rule, apiKey: 'k', apiUrl: 'https://api.test', env: jobEnv }), { authorization: 'Bearer t' });
+    assert.deepEqual(await credential({ apiKey: 'k', apiUrl: 'https://api.test', env: jobEnv }), { 'x-api-key': 'k' });
+    assert.match(logged(log), /workload identity federation[\s\S]*the API key/);
+  });
+
+  it('falls back to the key with a warning, and throws when there is no key to fall back to', async () => {
+    const log = captureLog();
+    assert.deepEqual(await credential({ federation: rule, apiKey: 'k', apiUrl: 'https://api.test', env: {} }), { 'x-api-key': 'k' });
+    assert.match(logged(log), /::warning::The job has no identity token: give it `id-token: write`\. The review uses the API key\./);
+    await assert.rejects(credential({ federation: rule, apiUrl: 'https://api.test', env: {} }), /id-token: write/);
+    await assert.rejects(credential({ apiUrl: 'https://api.test', env: {} }), /No credential/);
   });
 });
 
@@ -162,6 +224,18 @@ describe('run', () => {
       const github = { apiUrl: 'https://gh.test', repository: 'o/r', token: 't' };
       assert.equal(await run({ factsPath, apiKey: 'k', apiUrl: 'https://api.test', github }), 0);
       assert.equal(calls[2].url, 'https://gh.test/repos/o/r/issues/12/comments');
+    });
+  });
+
+  it('authenticates with federation, and logs the tokens that the review used', async () => {
+    await withFacts(async (dir, factsPath) => {
+      const log = captureLog();
+      const calls = stubFetch([{ body: { value: 'jwt' } }, { body: { access_token: 't' } }, { body: { ...reply('merge'), usage: { input_tokens: 1200, output_tokens: 80 } } }]);
+      const commentFile = path.join(dir, 'comment.md');
+      assert.equal(await run({ factsPath, apiKey: '', federation: rule, env: jobEnv, apiUrl: 'https://api.test', commentFile }), 0);
+      assert.equal(calls[2].headers.authorization, 'Bearer t');
+      assert.equal(calls[2].headers['x-api-key'], undefined);
+      assert.match(logged(log), /Tokens: 1200 input, 80 output\./);
     });
   });
 
