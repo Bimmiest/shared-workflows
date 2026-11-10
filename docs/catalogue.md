@@ -41,6 +41,7 @@ the `PATH` of the runner, and they need Node 22 or later.
 | [`coverage-ratchet`](../.github/actions/coverage-ratchet/action.yml) | Fails when a Vitest coverage floor is more than `slack` points below the measurement. The floors for each glob are included. It prints the block to write. | `vitest.config.ts`, `coverage/coverage-summary.json` |
 | [`audit-check`](../.github/actions/audit-check/action.yml) | Runs `npm audit --omit=dev`, and fails at `high`. Each exception has a reason and an expiry. An exception that has expired, or that no advisory needs, fails. | `.audit-exceptions.json` |
 | [`licence-check`](../.github/actions/licence-check/action.yml) | Fails when the licence of a production dependency is not on the allowlist. It reads the `license` fields of the lockfile, and installs nothing. | `.licence-allowlist.json`, `package-lock.json` |
+| [`package-contents-check`](../.github/actions/package-contents-check/action.yml) | Fails when `npm pack` leaves out a path that must ship, or ships a path that must not. The required paths are exact, and the forbidden ones are regular expressions. | `.package-contents.json` |
 | [`pr-hygiene`](../.github/actions/pr-hygiene/action.yml) | Fails when the branch is not `<type>/<short-description>-<issue>`, or the description does not link the issue. The `no-issue` label and `dependabot[bot]` are exempt. | The `pull_request` event |
 | [`changelog-check`](../.github/actions/changelog-check/action.yml) | Fails when a pull request changes a file in `paths` and does not change `CHANGELOG.md`. Tests are ignored. The `no-changelog` label and `dependabot[bot]` are exempt. | The files of the pull request. On a private repository the job needs `pull-requests: read` |
 | [`docs-check`](../.github/actions/docs-check/action.yml) | Fails on a relative Markdown link that does not resolve. Fails when the ADR index does not agree with `docs/adr/`, is not in order, or does not explain a gap. Fails when a root `LICENSE-*` file is not in the README. With `readmeMaxLines`, fails on a longer README. With `maxLines`, fails on each Markdown file that is longer than the first rule that matches it, less the files that `maxLinesExceptions` caps until a date. With `docTypes`, fails on a topic file whose frontmatter has no allowed `type`. With `docsIndex`, fails when the index of `docs/` has no row for a topic file, a row for no file, or rows out of path order. With `ste`, warns on each word that ASD-STE100 does not allow, in the files that `ste` names. | The Markdown files, `.docs-check.json` if it exists |
@@ -65,9 +66,9 @@ the `PATH` of the runner, and they need Node 22 or later.
 
 ## The commands behind the actions
 
-Nine actions run a script that is also a command. `npm` installs these
+Ten actions run a script that is also a command. `npm` installs these
 `bin` names: `audit-check`, `baseline-check`, `changelog-check`,
 `coverage-ratchet`, `docs-check`, `licence-check`, `node-patch-check`,
-`pr-hygiene` and `repo-settings-check`. The arguments of a command are the same
-as the arguments that the action gives. [consuming.md](consuming.md) tells you
+`package-contents-check`, `pr-hygiene` and `repo-settings-check`. The
+arguments of a command are the same as the arguments that the action gives. [consuming.md](consuming.md) tells you
 how to run them.

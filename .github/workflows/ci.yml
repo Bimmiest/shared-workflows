@@ -99,6 +99,11 @@ jobs:
         with:
           working-directory: test/fixtures/project
 
+      - name: package-contents-check
+        uses: ./.github/actions/package-contents-check # zizmor: ignore[self-repository]
+        with:
+          working-directory: test/fixtures/package-contents-check/pass
+
       - name: coverage-ratchet (must fail)
         id: coverage-ratchet
         continue-on-error: true
@@ -119,6 +124,13 @@ jobs:
         uses: ./.github/actions/licence-check # zizmor: ignore[self-repository]
         with:
           working-directory: test/fixtures/licence-check/fail
+
+      - name: package-contents-check (must fail)
+        id: package-contents-check
+        continue-on-error: true
+        uses: ./.github/actions/package-contents-check # zizmor: ignore[self-repository]
+        with:
+          working-directory: test/fixtures/package-contents-check/fail
 
       - name: docs-check (must fail)
         id: docs-check
@@ -147,12 +159,13 @@ jobs:
           COVERAGE_RATCHET: ${{ steps.coverage-ratchet.outcome }}
           AUDIT_CHECK: ${{ steps.audit-check.outcome }}
           LICENCE_CHECK: ${{ steps.licence-check.outcome }}
+          PACKAGE_CONTENTS_CHECK: ${{ steps.package-contents-check.outcome }}
           DOCS_CHECK: ${{ steps.docs-check.outcome }}
           NODE_PATCH_CHECK: ${{ steps.node-patch-check.outcome }}
           BASELINE_CHECK: ${{ steps.baseline-check.outcome }}
         run: |
           status=0
-          for name in COVERAGE_RATCHET AUDIT_CHECK LICENCE_CHECK DOCS_CHECK NODE_PATCH_CHECK BASELINE_CHECK; do
+          for name in COVERAGE_RATCHET AUDIT_CHECK LICENCE_CHECK PACKAGE_CONTENTS_CHECK DOCS_CHECK NODE_PATCH_CHECK BASELINE_CHECK; do
             if [ "${!name}" != failure ]; then
               echo "::error::The fixture for ${name} that must fail ended in '${!name}'."
               status=1
