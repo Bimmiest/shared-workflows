@@ -5,7 +5,7 @@
  *
  *   node review.mjs --facts facts.json [--model claude-opus-5-5] [--comment-file out.md]
  *
- * This runs in the job that holds the API key, which never checks out the
+ * This runs in the job that holds the credential, which never checks out the
  * pull request: the facts come from the job without a secret, and are read
  * here as untrusted data. The verdict is advice. It is never a required
  * check, and the step fails only when it cannot produce a comment.
@@ -24,6 +24,7 @@ export const VERDICTS = ['merge', 'needs-attention', 'do-not-merge'];
 const BOT = 'github-actions[bot]';
 const MAX_REASONS = 8;
 const MAX_REASON_CHARS = 600;
+const AUDIENCE = 'https://api.anthropic.com';
 
 export const SCHEMA = {
   type: 'object',
@@ -43,12 +44,12 @@ export const SCHEMA = {
   },
 };
 
-/** The request: the fixed prompt as the system prompt, and the facts as data. */
-export function buildRequest(facts, { model, prompt, apiKey }) {
+/** The request: the fixed prompt as the system prompt, and the facts as data. `auth` is the header from `credential`. */
+export function buildRequest(facts, { model, prompt, auth }) {
   return {
     headers: {
       'content-type': 'application/json',
-      'x-api-key': apiKey,
+      ...auth,
       'anthropic-version': '2026-10-21',
       // A decline on a safety classifier is re-run on another model, inside the same call.
       'anthropic-beta': 'server-side-fallback-2026-07-01',
@@ -159,6 +160,49 @@ async function request(url, init, what) {
   return text === '' ? null : JSON.parse(text);
 }
 
+/** Exchanges the job's GitHub identity token for a short-lived Anthropic access token. */
+export async function federatedToken({ ruleId, organizationId, serviceAccountId, workspaceId }, { apiUrl, env }) {
+  if (!organizationId || !serviceAccountId) throw new Error('Federation needs the organization and the service account, as well as the rule.');
+  if (!env.ACTIONS_ID_TOKEN_REQUEST_URL || !env.ACTIONS_ID_TOKEN_REQUEST_TOKEN) throw new Error('The job has no identity token: give it `id-token: write`.');
+  const url = new URL(env.ACTIONS_ID_TOKEN_REQUEST_URL);
+  url.searchParams.set('audience', AUDIENCE);
+  const identity = await request(url, { headers: { authorization: `Bearer ${env.ACTIONS_ID_TOKEN_REQUEST_TOKEN}` } }, 'The GitHub identity token endpoint');
+  if (typeof identity?.value !== 'string') throw new Error('GitHub returned no identity token.');
+  const body = {
+    grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+    assertion: identity.value,
+    federation_rule_id: ruleId,
+    organization_id: organizationId,
+    service_account_id: serviceAccountId,
+    ...(workspaceId ? { workspace_id: workspaceId } : {}),
+  };
+  const reply = await request(`${apiUrl}/v1/oauth/token`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }, 'The token exchange');
+  if (typeof reply?.access_token !== 'string') throw new Error('The token exchange returned no access token.');
+  return reply.access_token;
+}
+
+/**
+ * The header that authenticates the request. With a federation rule, no key is
+ * stored (#91). The API key is the fallback, so that a run that gets no identity
+ * token, or a rule that does not match yet, still gets its review, with a warning.
+ */
+export async function credential({ federation = {}, apiKey, apiUrl, env = process.env }) {
+  if (federation.ruleId) {
+    try {
+      const token = await federatedToken(federation, { apiUrl, env });
+      console.log(`::add-mask::${token}`);
+      console.log('Authenticated with workload identity federation.');
+      return { authorization: `Bearer ${token}` };
+    } catch (error) {
+      if (!apiKey) throw error;
+      console.log(`::warning::${error.message} The review uses the API key.`);
+    }
+  }
+  if (!apiKey) throw new Error('No credential: set the federation inputs, or the api-key input from a secret.');
+  console.log('Authenticated with the API key.');
+  return { 'x-api-key': apiKey };
+}
+
 /** Updates the one comment that this workflow wrote, found by its marker and its author, or adds it. */
 export async function upsertComment({ apiUrl, repository, number, token, body }) {
   const headers = { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json', 'content-type': 'application/json' };
@@ -180,6 +224,13 @@ export async function run({
   factsPath,
   model = 'claude-opus-5-5',
   apiKey = process.env.ANTHROPIC_API_KEY,
+  federation = {
+    ruleId: process.env.ANTHROPIC_FEDERATION_RULE_ID,
+    organizationId: process.env.ANTHROPIC_ORGANIZATION_ID,
+    serviceAccountId: process.env.ANTHROPIC_SERVICE_ACCOUNT_ID,
+    workspaceId: process.env.ANTHROPIC_WORKSPACE_ID,
+  },
+  env = process.env,
   apiUrl = 'https://api.anthropic.com',
   commentFile,
   github = {
@@ -189,11 +240,13 @@ export async function run({
   },
 } = {}) {
   try {
-    if (!apiKey) throw new Error('No API key: set the api-key input from a secret.');
     const facts = JSON.parse(readFileSync(factsPath, 'utf8'));
     const prompt = readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'prompt.md'), 'utf8');
-    const { headers, body } = buildRequest(facts, { model, prompt, apiKey });
+    const auth = await credential({ federation, apiKey, apiUrl, env });
+    const { headers, body } = buildRequest(facts, { model, prompt, auth });
     const reply = await request(`${apiUrl}/v1/messages`, { method: 'POST', headers, body: JSON.stringify(body) }, 'The Messages API');
+    // The cost of a review, to check against the workspace's spend limit.
+    if (reply?.usage) console.log(`Tokens: ${reply.usage.input_tokens} input, ${reply.usage.output_tokens} output.`);
     const review = parseReply(reply);
     const comment = renderComment(review, facts, { repository: github.repository, sha: facts.pullRequest?.headSha });
     if (commentFile) {

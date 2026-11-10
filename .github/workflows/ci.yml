@@ -119,25 +119,41 @@ jobs:
           out: ${{ runner.temp }}/facts.json
           working-directory: test/fixtures/project
 
-      # A stand-in for the Messages API, so the review runs with no key and
-      # no cost: /good answers with a verdict, /bad with a server error.
+      # A stand-in for GitHub's identity token endpoint, the token exchange and
+      # the Messages API, so the review runs with no credential and no cost:
+      # /good answers with a verdict, /bad with a server error.
       - name: Start a stand-in for the Messages API
         run: |
           node -e '
-            const reply = { model: "claude-opus-5-5", stop_reason: "end_turn",
+            const reply = { model: "claude-opus-5-5", stop_reason: "end_turn", usage: { input_tokens: 1200, output_tokens: 80 },
               content: [{ type: "text", text: JSON.stringify({ verdict: "merge", reasons: [{ text: "Nothing breaks.", file: null }] }) }] };
             require("node:http").createServer((req, res) => {
-              const good = req.url === "/good/v1/messages";
-              res.writeHead(good ? 200 : 500, { "content-type": "application/json" });
-              res.end(JSON.stringify(good ? reply : { error: { type: "api_error" } }));
+              let body = "";
+              req.on("data", (chunk) => (body += chunk));
+              req.on("end", () => {
+                const answer = req.url.startsWith("/id-token?") ? { value: "stand-in-jwt" }
+                  : req.url === "/good/v1/oauth/token" && JSON.parse(body).assertion === "stand-in-jwt" ? { access_token: "stand-in-token", expires_in: 600 }
+                  : req.url === "/good/v1/messages" && req.headers.authorization === "Bearer stand-in-token" ? reply
+                  : req.url === "/good/v1/messages" && req.headers["x-api-key"] ? reply
+                  : null;
+                res.writeHead(answer ? 200 : 500, { "content-type": "application/json" });
+                res.end(JSON.stringify(answer ?? { error: { type: "api_error" } }));
+              });
             }).listen(8787);
           ' &
           for _ in $(seq 1 20); do curl -s -o /dev/null http://127.0.0.1:8787/ && break; sleep 0.25; done
 
+      # Federation, with no key to fall back to. The job has no `id-token:
+      # write`, so the step points the runner's variables at the stand-in.
       - name: dependabot-review
         uses: ./.github/actions/dependabot-review # zizmor: ignore[self-repository]
+        env:
+          ACTIONS_ID_TOKEN_REQUEST_URL: http://127.0.0.1:8787/id-token?api-version=2.0
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: not-a-secret
         with:
-          api-key: not-a-secret
+          federation-rule-id: fdrl_stand_in
+          organization-id: org-stand-in
+          service-account-id: svac_stand_in
           facts: ${{ runner.temp }}/facts.json
           api-url: http://127.0.0.1:8787/good
           comment-file: ${{ runner.temp }}/comment.md

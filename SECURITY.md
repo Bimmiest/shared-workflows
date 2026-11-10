@@ -25,7 +25,7 @@ consumer pins a commit of this repository, and runs it.
 - **A way for the text of a pull request to get past `dependabot-review`.**
   The release notes are untrusted input. A finding is text that makes the
   comment hold a link, an image or a mention that the script did not make,
-  or that reaches the API key.
+  or that reaches the credential.
 - **A check that passes when it must fail.** The checks exist to refuse
   things. A way to make a check green while its condition is false is a
   finding.
