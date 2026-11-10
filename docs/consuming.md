@@ -128,9 +128,14 @@ jobs:
   that expires in minutes. In the Claude Console, use an Anthropic workspace
   that is only for CI, with a monthly spend limit. Make a service account in
   it, and a federation rule for the issuer
-  `https://token.actions.githubusercontent.com`, with the subject prefix
-  `repo:<owner>/<repo>:pull_request`, the audience `https://api.anthropic.com`,
-  and the claims `repository_owner` and `workflow`. The IDs are not secrets.
+  `https://token.actions.githubusercontent.com`. The subject is the
+  `sub_claim_prefix` from
+  `gh api repos/<owner>/<repo>/actions/oidc/customization/sub`, then
+  `:pull_request`. Do not write `repo:<owner>/<repo>` from memory: a
+  repository with immutable subjects has
+  `repo:<owner>@<owner ID>/<repo>@<repository ID>`. Set the audience
+  `https://api.anthropic.com`, and the claims `event_name` (`pull_request`)
+  and `workflow` (the `name:` of the workflow). The IDs are not secrets.
   A pull request from a fork gets no identity token, so nothing leaks.
 - **The fallback.** `api-key` takes an API key from the same workspace. With
   a federation rule, the step uses the key only when the exchange fails, and
