@@ -48,7 +48,9 @@ describe('importSites', () => {
   });
 
   it('is empty for a name nothing uses, and respects the limit', () => {
-    assert.deepEqual(importSites('no-such-package-anywhere-81', repoRoot), []);
+    // Built at run time: a literal here would be a file that names it.
+    const absent = ['no', 'such', 'package', String(process.pid), String(Date.now())].join('-');
+    assert.deepEqual(importSites(absent, repoRoot), []);
     assert.equal(importSites('node:test', repoRoot, 1).length, 1);
   });
 });
