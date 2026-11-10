@@ -21,6 +21,8 @@
     "baseline-check": ".github/actions/baseline-check/baseline-check.mjs",
     "changelog-check": ".github/actions/changelog-check/changelog-check.mjs",
     "coverage-ratchet": ".github/actions/coverage-ratchet/ratchet.mjs",
+    "dependabot-review": ".github/actions/dependabot-review/review.mjs",
+    "dependabot-review-facts": ".github/actions/dependabot-review-facts/facts.mjs",
     "docs-check": ".github/actions/docs-check/docs-check.mjs",
     "licence-check": ".github/actions/licence-check/licence-check.mjs",
     "lockfile-nesting-check": ".github/actions/lockfile-nesting-check/lockfile-nesting.mjs",
