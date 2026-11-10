@@ -12,6 +12,11 @@ inputs:
   warn-only:
     description: Annotate and exit 0 instead of failing.
     default: 'false'
+  eol-days:
+    description: >-
+      Also fail when the pinned Node line reaches its end of life in fewer
+      than this many days, from the Node release schedule. 0 turns it off.
+    default: '0'
   working-directory:
     description: Where the file path is resolved from.
     default: .
@@ -24,10 +29,11 @@ runs:
       env:
         NVMRC: ${{ inputs.nvmrc }}
         WARN_ONLY: ${{ inputs.warn-only }}
+        EOL_DAYS: ${{ inputs.eol-days }}
         SCRIPT: ${{ github.action_path }}/node-patch.mjs
       run: |
         if [ "$WARN_ONLY" = "true" ]; then
-          node "$SCRIPT" --nvmrc "$NVMRC" --warn-only
+          node "$SCRIPT" --nvmrc "$NVMRC" --eol-days "$EOL_DAYS" --warn-only
         else
-          node "$SCRIPT" --nvmrc "$NVMRC"
+          node "$SCRIPT" --nvmrc "$NVMRC" --eol-days "$EOL_DAYS"
         fi

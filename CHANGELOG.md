@@ -7,6 +7,16 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+### Added
+
+- **`node-patch-check` has an `eol-days` input**
+  ([#74](https://github.com/Bimmiest/shared-workflows/issues/74)). Set it to
+  a number of days, and the check also fails when the pinned Node line ends in
+  fewer days than that. It reads the end date from the Node release schedule.
+  With `warn-only`, it only warns. The default is `0`, which turns it off, so
+  no consumer gets a new failure from the bump. Set `eol-days: 90` to turn it
+  on.
+
 ## 1.7.1 — 2026-10-28
 
 ### Fixed

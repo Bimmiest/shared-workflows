@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { compareVersions, latestOfMajor, parseVersion, verdict } from './node-patch.mjs';
+import { compareVersions, eolVerdict, latestOfMajor, parseVersion, verdict } from './node-patch.mjs';
 
 describe('parseVersion', () => {
   it('reads x.y.z with or without a v, and nothing else', () => {
@@ -52,5 +52,33 @@ describe('verdict', () => {
 
   it('fails when the line has no release at all', () => {
     assert.equal(verdict([99, 0, 0], null).code, 1);
+  });
+});
+
+describe('eolVerdict', () => {
+  const schedule = { v26: { end: '2029-04-30' }, v24: { end: '2028-04-30' } };
+  const today = new Date('2028-03-01T12:00:00Z');
+
+  it('passes a line that ends later than the window', () => {
+    assert.deepEqual(eolVerdict(26, schedule, today, { eolDays: 90 }), { line: 'Node 26.x ends on 2029-04-30, in 425 days.', code: 0 });
+  });
+
+  it('passes on the last day of the window, and fails one day inside it', () => {
+    assert.equal(eolVerdict(24, schedule, today, { eolDays: 60 }).code, 0);
+    const { line, code } = eolVerdict(24, schedule, today, { eolDays: 61 });
+    assert.equal(code, 1);
+    assert.match(line, /^::error title=Node line ends soon::Node 24\.x ends on 2028-04-30, in 60 days/);
+  });
+
+  it('only warns under --warn-only', () => {
+    const { line, code } = eolVerdict(24, schedule, today, { eolDays: 90, warnOnly: true });
+    assert.equal(code, 0);
+    assert.match(line, /^::warning title=Node line ends soon::/);
+  });
+
+  it('fails when the schedule has no end date for the line', () => {
+    assert.equal(eolVerdict(99, schedule, today, { eolDays: 90 }).code, 1);
+    assert.equal(eolVerdict(26, { v26: { end: 'soon' } }, today, { eolDays: 90 }).code, 1);
+    assert.equal(eolVerdict(26, null, today, { eolDays: 90 }).code, 1);
   });
 });
