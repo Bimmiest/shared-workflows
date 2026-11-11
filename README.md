@@ -37,14 +37,16 @@ wrote each check for one repository, and then the next repository needed it.
 them. To start a new repository, use the template, not this repository.
 
 There are two shapes. A reusable workflow is a complete job. `security.yml`
-runs gitleaks and Trivy, `workflow-lint.yml` runs actionlint and zizmor, and
-`scorecard.yml` runs OpenSSF Scorecard.
-A composite action is a step: the coverage ratchet, the advisory and licence
-checks, PR hygiene, the documentation check, the Node patch check, the
-repository settings check, and the steps that install Node and a Playwright
-browser.
+runs gitleaks and Trivy, `workflow-lint.yml` runs actionlint and zizmor,
+`scorecard.yml` runs OpenSSF Scorecard, and `mutation.yml` runs Stryker.
+A composite action is a step: the coverage and mutation ratchets, the
+advisory and licence checks, PR hygiene, the documentation check, the Node
+patch check, the repository settings check, and the steps that install Node
+and a Playwright browser.
 [ADR 0001](docs/adr/0001-checks-are-composite-actions-pinned-by-commit.md)
 records why each check with a script is an action.
+[ADR 0005](docs/adr/0005-the-mutation-workflow-takes-its-scripts-from-the-commit-of-its-call.md)
+records why `mutation.yml` is a workflow with scripts.
 
 The releases are on the `v1` line. A check that starts to fail on something
 that it passed before is a new major version. This repository is not a

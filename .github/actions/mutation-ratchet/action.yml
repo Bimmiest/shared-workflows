@@ -1,0 +1,36 @@
+name: Mutation ratchet
+description: >-
+  Fails when the Stryker mutation score is more than `slack` points above
+  `thresholds.break`, and prints the floor to write. It also fails under the
+  floor. The other direction of the ratchet: Stryker fails a run under its
+  floor, this fails one that has outgrown it. It reads the config as text, so
+  it needs no install. Run it after a full mutation run, with Node set up.
+inputs:
+  report:
+    description: The JSON report that Stryker's `json` reporter wrote.
+    default: reports/mutation/mutation.json
+  config:
+    description: The Stryker config whose `thresholds.break` is the floor. It is read as text, never imported.
+    default: stryker.config.mjs
+  slack:
+    description: How many points the score may be above its floor before the floor must move.
+    default: '1'
+  working-directory:
+    description: Where the report and config paths are resolved from.
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: Mutation floor is current
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      # Inputs reach the script as environment variables, never pasted into
+      # the command: an input is text a caller wrote.
+      env:
+        REPORT: ${{ inputs.report }}
+        CONFIG: ${{ inputs.config }}
+        SLACK: ${{ inputs.slack }}
+        SCRIPT: ${{ github.action_path }}/ratchet.mjs
+      # `--slack=` with the value joined, so that a value such as -1 gets to
+      # the check that refuses it, and is not read as an option.
+      run: node "$SCRIPT" --report "$REPORT" --config "$CONFIG" --slack="$SLACK"

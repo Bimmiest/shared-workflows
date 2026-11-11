@@ -7,6 +7,29 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+### Added
+
+- **`mutation.yml`**, a new reusable workflow
+  ([#37](https://github.com/Bimmiest/shared-workflows/issues/37)). It runs
+  Stryker by the rules of repo-template ADR 0004. On a pull request, it
+  mutates the files in the `mutate` list of the Stryker config that the pull
+  request changes, and the files in the list that its changed tests import.
+  On each other event, it mutates the full list, in `shards` jobs, and a
+  last job holds the combined score to `thresholds.break` and fails more
+  than `slack` points above it. Each report is an artifact, also when the
+  run fails. The caller gives `actions: read`, because the workflow checks
+  out its scripts at the commit of the call
+  ([ADR 0005](docs/adr/0005-the-mutation-workflow-takes-its-scripts-from-the-commit-of-its-call.md)).
+  With `shards` above 1, the Stryker config must set `break` to `null` when
+  `MUTATION_SHARD` is `1`. [consuming.md](docs/consuming.md#run-the-mutation-workflow)
+  has the detail. A new workflow is a minor version.
+- **`mutation-ratchet`**, a new action and command
+  ([#37](https://github.com/Bimmiest/shared-workflows/issues/37)). It reads
+  the Stryker JSON report and `thresholds.break` of the config, as text. It
+  fails when the score is more than `slack` points above the floor, and
+  gives the floor to write. It also fails below the floor. The default slack
+  is 1 point. A new action is a minor version.
+
 ## 1.13.0 — 2026-11-11
 
 ### Added

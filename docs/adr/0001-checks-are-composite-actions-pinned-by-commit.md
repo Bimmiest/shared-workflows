@@ -1,6 +1,6 @@
 # 0001. Checks are composite actions, pinned by commit
 
-- **Status:** Accepted
+- **Status:** Accepted. The shape of a job that runs a script is superseded by [0005](0005-the-mutation-workflow-takes-its-scripts-from-the-commit-of-its-call.md).
 - **Date:** 2026-10-04, recorded on 2026-10-25
 - **Issue:** [#12](https://github.com/Bimmiest/shared-workflows/issues/12)
 

@@ -53,8 +53,9 @@ versions in one repository give two sets of rules.
 - **Permissions.** The caller job gives the permissions. `security.yml` needs
   `contents: read` and `pull-requests: read`. `scorecard.yml` needs
   `contents: read`, `actions: read`, `id-token: write` and
-  `security-events: write`. `open-or-update-issue` needs `issues: write`. The
-  other checks need only `contents: read`.
+  `security-events: write`. `mutation.yml` needs `contents: read` and
+  `actions: read`. `open-or-update-issue` needs `issues: write`. The other
+  checks need only `contents: read`.
 - **A token for the settings check.** `repo-settings-check` needs a
   fine-grained token with "Administration: read" on the repository, as a
   secret. One token can cover each repository of an owner.
@@ -155,6 +156,63 @@ jobs:
   default. Set `model` to change it. The step logs the input and output
   tokens.
 
+## Run the mutation workflow
+
+`mutation.yml` runs Stryker by the rules of repo-template ADR 0004: the
+changed files on a pull request, and the full list each week. Call it from a
+workflow of its own, so that a red run does not look like a broken build:
+
+```yaml
+name: Mutation
+on:
+  schedule:
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+jobs:
+  mutation:
+    uses: Bimmiest/shared-workflows/.github/workflows/mutation.yml@<sha> # vX.Y.Z
+    permissions:
+      contents: read
+      actions: read
+    with:
+      shards: 4
+      canary-command: npm run test:mutation:canary
+```
+
+- **The Stryker config.** The workflow reads the config as text, and does
+  not import it. Write `mutate` as a list of string literals. A glob can have
+  `**`, `*` and a `!` at the start. The workflow refuses a glob with `?`,
+  `[ ]`, `{ }` or `( )`, because it cannot select the same files as Stryker.
+  Add `json` to the `reporters`.
+- **The floor of a shard.** With `shards` above 1, each shard job sets
+  `MUTATION_SHARD=1`. One shard can be below the floor while the full run is
+  not. Thus the config must turn the floor off for a shard, and the `score`
+  job holds the shards together to the floor:
+
+  ```js
+  thresholds: { high: 85, low: 83, break: process.env.MUTATION_SHARD === '1' ? null : 81 },
+  ```
+
+  The workflow reads the one number in the `break` expression.
+- **The command.** The workflow adds `--mutate <files>` at the end of
+  `command`. npm reads each option before `--` as its own, so the workflow
+  adds `--` first when the command starts with `npm` and has no ` -- `.
+- **The time limit.** Each job writes its time to the job summary. When a
+  job gets near `timeout-minutes`, add a shard. Do not raise the limit:
+  GitHub stops a job after 6 hours, and a job that stops gives no score.
+- **The permission `actions: read`.** A `./` path in a reusable workflow
+  names the checkout of the caller. Thus the `plan` job reads the commit of
+  the workflow from the record of the run, and checks out the scripts at that
+  commit ([ADR 0005](adr/0005-the-mutation-workflow-takes-its-scripts-from-the-commit-of-its-call.md)).
+- **Not a required check.** A required check makes each merge wait for the
+  run, which is slow. The reviewer decides if a red run can merge.
+
 ## Run a check on your own machine
 
 The scripts take the same arguments as the actions. Use one of two methods.
@@ -182,7 +240,9 @@ Two facts make the pins work. Neither is a file.
   and actions, and a private repository can too. If this repository becomes
   private, set **Settings, Actions, General, Access** to allow the
   repositories of the same owner. Without that setting, GitHub refuses each
-  call as "not found".
+  call as "not found". `mutation.yml` also checks out this repository with
+  the token of the caller, and that token cannot read a private repository
+  of another name.
 - **Each release has two tags:** `vX.Y.Z`, and a major tag `vX` that moves to
   the newest release. Dependabot needs the tags to find a version behind a
   SHA. A `vX.Y.Z` tag cannot move or be deleted, because a ruleset refuses it

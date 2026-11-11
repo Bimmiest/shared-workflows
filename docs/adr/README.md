@@ -59,10 +59,11 @@ to check when you change it.
 
 | # | Decision | Status |
 |---|---|---|
-| [0001](0001-checks-are-composite-actions-pinned-by-commit.md) | Checks are composite actions, pinned by commit | Accepted |
+| [0001](0001-checks-are-composite-actions-pinned-by-commit.md) | Checks are composite actions, pinned by commit | Accepted, in part superseded by 0005 |
 | [0002](0002-the-repository-follows-the-template-standard-without-a-toolchain.md) | The repository follows the template standard, without a toolchain | Accepted, in part superseded by 0003 |
 | [0003](0003-the-scripts-have-a-coverage-floor-from-the-node-test-runner.md) | The scripts have a coverage floor, from the Node test runner | Accepted |
 | [0004](0004-a-workflow-publishes-each-release-and-a-release-tag-does-not-move.md) | A workflow publishes each release, and a release tag does not move | Accepted |
+| [0005](0005-the-mutation-workflow-takes-its-scripts-from-the-commit-of-its-call.md) | The mutation workflow takes its scripts from the commit of its call | Accepted |
 
 ## Numbers with no record
 

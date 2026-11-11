@@ -1,0 +1,437 @@
+{
+  "schemaVersion": "2",
+  "thresholds": {
+    "high": 90,
+    "low": 85
+  },
+  "files": {
+    "src/clamp.ts": {
+      "language": "typescript",
+      "source": "export const clamp = (n: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, n));\n",
+      "mutants": [
+        {
+          "id": "1",
+          "mutatorName": "ArithmeticOperator",
+          "replacement": "/* mutant */",
+          "status": "Killed",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 1
+            },
+            "end": {
+              "line": 1,
+              "column": 2
+            }
+          }
+        },
+        {
+          "id": "2",
+          "mutatorName": "ConditionalExpression",
+          "replacement": "/* mutant */",
+          "status": "Killed",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 2
+            },
+            "end": {
+              "line": 1,
+              "column": 3
+            }
+          }
+        },
+        {
+          "id": "3",
+          "mutatorName": "EqualityOperator",
+          "replacement": "/* mutant */",
+          "status": "Killed",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 3
+            },
+            "end": {
+              "line": 1,
+              "column": 4
+            }
+          }
+        },
+        {
+          "id": "4",
+          "mutatorName": "BooleanLiteral",
+          "replacement": "/* mutant */",
+          "status": "Killed",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 4
+            },
+            "end": {
+              "line": 1,
+              "column": 5
+            }
+          }
+        },
+        {
+          "id": "5",
+          "mutatorName": "MethodExpression",
+          "replacement": "/* mutant */",
+          "status": "Killed",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 5
+            },
+            "end": {
+              "line": 1,
+              "column": 6
+            }
+          }
+        },
+        {
+          "id": "6",
+          "mutatorName": "BlockStatement",
+          "replacement": "/* mutant */",
+          "status": "Killed",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 6
+            },
+            "end": {
+              "line": 1,
+              "column": 7
+            }
+          }
+        },
+        {
+          "id": "7",
+          "mutatorName": "ArithmeticOperator",
+          "replacement": "/* mutant */",
+          "status": "Killed",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 7
+            },
+            "end": {
+              "line": 1,
+              "column": 8
+            }
+          }
+        },
+        {
+          "id": "8",
+          "mutatorName": "ConditionalExpression",
+          "replacement": "/* mutant */",
+          "status": "Killed",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 8
+            },
+            "end": {
+              "line": 1,
+              "column": 9
+            }
+          }
+        },
+        {
+          "id": "9",
+          "mutatorName": "EqualityOperator",
+          "replacement": "/* mutant */",
+          "status": "Killed",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 9
+            },
+            "end": {
+              "line": 1,
+              "column": 10
+            }
+          }
+        },
+        {
+          "id": "10",
+          "mutatorName": "BooleanLiteral",
+          "replacement": "/* mutant */",
+          "status": "Timeout",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 10
+            },
+            "end": {
+              "line": 1,
+              "column": 11
+            }
+          }
+        },
+        {
+          "id": "11",
+          "mutatorName": "MethodExpression",
+          "replacement": "/* mutant */",
+          "status": "Survived",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 11
+            },
+            "end": {
+              "line": 1,
+              "column": 12
+            }
+          }
+        },
+        {
+          "id": "12",
+          "mutatorName": "BlockStatement",
+          "replacement": "/* mutant */",
+          "status": "Ignored",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 12
+            },
+            "end": {
+              "line": 1,
+              "column": 13
+            }
+          }
+        }
+      ]
+    },
+    "src/parse.ts": {
+      "language": "typescript",
+      "source": "export function parse(text: string): number | null {\n  const n = Number(text.trim());\n  return Number.isFinite(n) && n >= 0 ? n : null;\n}\n",
+      "mutants": [
+        {
+          "id": "13",
+          "mutatorName": "ArithmeticOperator",
+          "replacement": "/* mutant */",
+          "status": "Killed",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 1
+            },
+            "end": {
+              "line": 1,
+              "column": 2
+            }
+          }
+        },
+        {
+          "id": "14",
+          "mutatorName": "ConditionalExpression",
+          "replacement": "/* mutant */",
+          "status": "Killed",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 2
+            },
+            "end": {
+              "line": 1,
+              "column": 3
+            }
+          }
+        },
+        {
+          "id": "15",
+          "mutatorName": "EqualityOperator",
+          "replacement": "/* mutant */",
+          "status": "Killed",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 3
+            },
+            "end": {
+              "line": 1,
+              "column": 4
+            }
+          }
+        },
+        {
+          "id": "16",
+          "mutatorName": "BooleanLiteral",
+          "replacement": "/* mutant */",
+          "status": "Killed",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 4
+            },
+            "end": {
+              "line": 1,
+              "column": 5
+            }
+          }
+        },
+        {
+          "id": "17",
+          "mutatorName": "MethodExpression",
+          "replacement": "/* mutant */",
+          "status": "Killed",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 5
+            },
+            "end": {
+              "line": 1,
+              "column": 6
+            }
+          }
+        },
+        {
+          "id": "18",
+          "mutatorName": "BlockStatement",
+          "replacement": "/* mutant */",
+          "status": "Killed",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 6
+            },
+            "end": {
+              "line": 1,
+              "column": 7
+            }
+          }
+        },
+        {
+          "id": "19",
+          "mutatorName": "ArithmeticOperator",
+          "replacement": "/* mutant */",
+          "status": "Killed",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 7
+            },
+            "end": {
+              "line": 1,
+              "column": 8
+            }
+          }
+        },
+        {
+          "id": "20",
+          "mutatorName": "ConditionalExpression",
+          "replacement": "/* mutant */",
+          "status": "Killed",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 8
+            },
+            "end": {
+              "line": 1,
+              "column": 9
+            }
+          }
+        },
+        {
+          "id": "21",
+          "mutatorName": "EqualityOperator",
+          "replacement": "/* mutant */",
+          "status": "Timeout",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 9
+            },
+            "end": {
+              "line": 1,
+              "column": 10
+            }
+          }
+        },
+        {
+          "id": "22",
+          "mutatorName": "BooleanLiteral",
+          "replacement": "/* mutant */",
+          "status": "Timeout",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 10
+            },
+            "end": {
+              "line": 1,
+              "column": 11
+            }
+          }
+        },
+        {
+          "id": "23",
+          "mutatorName": "MethodExpression",
+          "replacement": "/* mutant */",
+          "status": "Survived",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 11
+            },
+            "end": {
+              "line": 1,
+              "column": 12
+            }
+          }
+        },
+        {
+          "id": "24",
+          "mutatorName": "BlockStatement",
+          "replacement": "/* mutant */",
+          "status": "Survived",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 12
+            },
+            "end": {
+              "line": 1,
+              "column": 13
+            }
+          }
+        },
+        {
+          "id": "25",
+          "mutatorName": "ArithmeticOperator",
+          "replacement": "/* mutant */",
+          "status": "NoCoverage",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 13
+            },
+            "end": {
+              "line": 1,
+              "column": 14
+            }
+          }
+        },
+        {
+          "id": "26",
+          "mutatorName": "ConditionalExpression",
+          "replacement": "/* mutant */",
+          "status": "CompileError",
+          "location": {
+            "start": {
+              "line": 1,
+              "column": 14
+            },
+            "end": {
+              "line": 1,
+              "column": 15
+            }
+          }
+        }
+      ]
+    }
+  }
+}

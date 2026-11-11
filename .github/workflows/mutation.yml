@@ -1,0 +1,299 @@
+name: Mutation
+
+# Reusable: Stryker's mutation run, with its floor held in both directions
+# (#37). Coverage says that a line ran. A mutation run says whether a test
+# fails when the line is wrong. The rules are those of repo-template ADR 0004:
+#
+# - On `pull_request`, one job mutates the files in the Stryker config's
+#   `mutate` list that the pull request adds or changes, and the files in the
+#   list that its changed tests import. Stryker holds them to
+#   `thresholds.break`. When there is none, the job is skipped, and the
+#   summary says so. Do not make the check a required check: the run is slow,
+#   and the reviewer decides.
+# - On any other event, the full run. With `shards` above 1, the list is
+#   divided across the jobs of a matrix, so that each job finishes inside the
+#   job limit. The `score` job holds the combined score to the floor, and
+#   fails when it is more than `slack` points above the floor, with the floor
+#   to write. It fails when a shard report is missing, or a file is in two.
+#
+#   on:
+#     schedule:
+#       - cron: '0 8 * * 1'
+#     workflow_dispatch:
+#     pull_request:
+#   jobs:
+#     mutation:
+#       uses: Bimmiest/shared-workflows/.github/workflows/mutation.yml@<sha> # vX.Y.Z
+#       permissions:
+#         contents: read
+#         actions: read
+#
+# A shard job sets MUTATION_SHARD=1, and the caller's Stryker config turns its
+# floor off for it, because one shard can be under the floor while the run is
+# not. The `score` job reads the number in the expression:
+#
+#   thresholds: { high: 85, low: 83, break: process.env.MUTATION_SHARD === '1' ? null : 81 },
+#
+# The scripts that choose the files and merge the reports are in this
+# repository. A `./` path in a reusable workflow names the caller's checkout,
+# so the `plan` job finds the commit of this workflow in the record of the
+# run, and checks out the scripts at that commit: the caller's pin. That is
+# why the caller gives `actions: read`.
+# See docs/adr/0005-the-mutation-workflow-takes-its-scripts-from-the-commit-of-its-call.md.
+on:
+  workflow_call:
+    inputs:
+      command:
+        description: >-
+          The command that runs Stryker. The workflow adds `--mutate <files>`
+          for a pull request or a shard, after a `--` when the command starts
+          with `npm` and has no ` -- `.
+        type: string
+        default: npm run test:mutation
+      stryker-config:
+        description: The Stryker config. The workflow reads its `mutate` list and `thresholds.break` as text, and never imports it.
+        type: string
+        default: stryker.config.mjs
+      shards:
+        description: The number of jobs that the full run is divided across. Add one when a job gets near its limit.
+        type: number
+        default: 1
+      full-run:
+        description: Run the full run on a pull request too, in place of the changed files.
+        type: boolean
+        default: false
+      canary-command:
+        description: >-
+          A command that each mutation job runs first, to prove that Stryker
+          still runs the tests of each mutant. Empty runs no canary.
+        type: string
+        default: ''
+      slack:
+        description: How many points the score of the full run may be above its floor before the floor must move.
+        type: number
+        default: 1
+      report-path:
+        description: The directory of Stryker's reports, from the working directory. The full run reads `mutation.json` in it.
+        type: string
+        default: reports/mutation/
+      artifact-name:
+        description: >-
+          The name of the report artifact. A shard adds `-<shard>-of-<count>`.
+          Give each call in one run a name that is not the start of another.
+        type: string
+        default: mutation-report
+      retention-days:
+        description: How many days GitHub keeps each report artifact.
+        type: number
+        default: 14
+      timeout-minutes:
+        description: The limit of each mutation job. Keep a job well inside it, with shards.
+        type: number
+        default: 60
+      working-directory:
+        description: The directory of the project, from the root of the repository.
+        type: string
+        default: .
+      cache-dependency-path:
+        description: The lockfiles that key the npm cache, one on each line. Empty is `package-lock.json` in the working directory.
+        type: string
+        default: ''
+      runs-on:
+        description: The runner labels, as a JSON array. The runner needs git and gh.
+        type: string
+        default: '["ubuntu-latest"]'
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  plan:
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
+    timeout-minutes: 10
+    # `actions: read` lets the job read the record of its own run, which
+    # names the commit of this workflow.
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      mode: ${{ steps.plan.outputs.mode }}
+      run: ${{ steps.plan.outputs.run }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      scripts: ${{ steps.self.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The diff of a pull request needs the history to the merge base.
+          # The full run needs the tracked files only.
+          fetch-depth: ${{ (github.event_name == 'pull_request' && !inputs.full-run) && '0' || '1' }}
+          persist-credentials: false
+
+      # GitHub gives a reusable workflow no expression for its own commit.
+      # The record of the run lists the commit of each reusable workflow that
+      # the run calls.
+      - name: Find the commit of this workflow
+        id: self
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          query='[.referenced_workflows[]? | select(.path | ascii_downcase | startswith("bimmiest/shared-workflows/.github/workflows/mutation.yml@")) | .sha] | unique | .[]'
+          if ! shas=$(gh api "repos/$REPOSITORY/actions/runs/$RUN_ID" --jq "$query"); then
+            echo "::error::Cannot read run $RUN_ID of $REPOSITORY. Give the job that calls mutation.yml the permission actions: read."
+            exit 1
+          fi
+          count=$(grep -c . <<<"$shas" || true)
+          if [ "$count" -ne 1 ]; then
+            echo "::error::The record of run $RUN_ID names Bimmiest/shared-workflows/.github/workflows/mutation.yml at $count commits. Call it at one commit."
+            exit 1
+          fi
+          echo "sha=$shas" >> "$GITHUB_OUTPUT"
+
+      # Inside the workspace, because actions/checkout writes nowhere else.
+      # The plan reads only the files that git tracks, so it does not see it.
+      - name: Check out the scripts of this workflow
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Bimmiest/shared-workflows
+          ref: ${{ steps.self.outputs.sha }}
+          path: .shared-workflows
+          persist-credentials: false
+
+      # Pinned to a release, as a consumer pins it: `./` here is the caller.
+      - uses: Bimmiest/shared-workflows/.github/actions/setup-node-project@6d9565a7d992fe10a1368249d3bdef47688a08c5 # v1.13.0
+        with:
+          cache-dependency-path: ${{ inputs.cache-dependency-path || (inputs.working-directory != '.' && format('{0}/package-lock.json', inputs.working-directory) || '') }}
+          install: 'false'
+
+      - name: Choose the files to mutate
+        id: plan
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          SCRIPT: ${{ github.workspace }}/.shared-workflows/.github/actions/mutation-ratchet/plan.mjs
+          CONFIG: ${{ inputs.stryker-config }}
+          SHARDS: ${{ inputs.shards }}
+          ARTIFACT: ${{ inputs.artifact-name }}
+          BASE: ${{ (github.event_name == 'pull_request' && !inputs.full-run) && format('origin/{0}', github.base_ref) || '' }}
+        run: |
+          args=(--config "$CONFIG" --shards="$SHARDS" --artifact-name "$ARTIFACT" --output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY")
+          if [ -n "$BASE" ]; then
+            args+=(--base "$BASE")
+          fi
+          node "$SCRIPT" "${args[@]}"
+
+  mutation:
+    needs: plan
+    if: needs.plan.outputs.run == 'true'
+    name: ${{ matrix.name }}
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    strategy:
+      # A shard that fails must not cancel the others: their reports still
+      # name the mutants that survived.
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: Bimmiest/shared-workflows/.github/actions/setup-node-project@6d9565a7d992fe10a1368249d3bdef47688a08c5 # v1.13.0
+        with:
+          cache-dependency-path: ${{ inputs.cache-dependency-path || (inputs.working-directory != '.' && format('{0}/package-lock.json', inputs.working-directory) || '') }}
+          working-directory: ${{ inputs.working-directory }}
+
+      # A broken runner looks like a weak suite: each mutant survives in both
+      # cases. The canary fails with the cause named, before the long run.
+      - name: Canary
+        if: inputs.canary-command != ''
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          CANARY: ${{ inputs.canary-command }}
+        run: eval "$CANARY"
+
+      - name: Mutation test
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          COMMAND: ${{ inputs.command }}
+          FILES: ${{ matrix.files }}
+          NAME: ${{ matrix.name }}
+          OF: ${{ matrix.of }}
+          LIMIT: ${{ inputs.timeout-minutes }}
+        run: |
+          # Stryker reads --mutate as one comma list. npm reads each option
+          # before `--` as its own, so an npm command gets `--` first.
+          set --
+          if [ -n "$FILES" ]; then
+            set -- --mutate "$FILES"
+            case " $COMMAND " in
+              *" -- "*) ;;
+              " npm "*) set -- -- "$@" ;;
+            esac
+            list="${FILES//,/\`, \`}"
+            echo "The $NAME job mutates \`$list\`." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          # One shard alone can be under the floor while the run is not, so a
+          # shard has no floor: the score job holds the shards together to it.
+          if [ "$OF" -gt 1 ]; then
+            export MUTATION_SHARD=1
+          fi
+          start=$SECONDS
+          status=0
+          eval "$COMMAND"' "$@"' || status=$?
+          echo "The $NAME job took $(( (SECONDS - start) / 60 )) of its $LIMIT minutes." >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Upload the report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          # The score job finds the shard reports by this name.
+          name: ${{ matrix.artifact }}
+          path: ${{ inputs.working-directory }}/${{ inputs.report-path }}
+          retention-days: ${{ inputs.retention-days }}
+
+  # The floor of the full run, in both directions, for the shard reports
+  # together. It runs only when each shard finished.
+  score:
+    needs: [plan, mutation]
+    if: needs.plan.outputs.mode == 'full'
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check out the scripts of this workflow
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Bimmiest/shared-workflows
+          ref: ${{ needs.plan.outputs.scripts }}
+          path: .shared-workflows
+          persist-credentials: false
+
+      - uses: Bimmiest/shared-workflows/.github/actions/setup-node-project@6d9565a7d992fe10a1368249d3bdef47688a08c5 # v1.13.0
+        with:
+          cache-dependency-path: ${{ inputs.cache-dependency-path || (inputs.working-directory != '.' && format('{0}/package-lock.json', inputs.working-directory) || '') }}
+          install: 'false'
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: ${{ inputs.artifact-name }}-*-of-*
+          path: ${{ runner.temp }}/mutation-shards
+
+      - name: Combined score against the floor
+        working-directory: ${{ inputs.working-directory }}
+        env:
+          SCRIPT: ${{ github.workspace }}/.shared-workflows/.github/actions/mutation-ratchet/ratchet.mjs
+          SHARDS: ${{ runner.temp }}/mutation-shards
+          PREFIX: ${{ inputs.artifact-name }}
+          CONFIG: ${{ inputs.stryker-config }}
+          SLACK: ${{ inputs.slack }}
+        run: node "$SCRIPT" --shards "$SHARDS" --prefix "$PREFIX" --config "$CONFIG" --slack="$SLACK" --summary "$GITHUB_STEP_SUMMARY"

@@ -32,7 +32,8 @@ node ../shared-workflows/.github/actions/docs-check/docs-check.mjs
     security.yml         reusable
     workflow-lint.yml    reusable
     scorecard.yml        reusable
-    ci.yml               the gates of this repository, which run the two above on it
+    mutation.yml         reusable, with its scripts in actions/mutation-ratchet/
+    ci.yml               the gates of this repository, which run the four above on it
     pr-hygiene.yml       the PR hygiene of this repository, from the action below
     release.yml          tags and publishes a release when `version` changes
     settings.yml         the weekly settings check of this repository
