@@ -7,6 +7,8 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+## 1.13.0 — 2026-11-11
+
 ### Added
 
 - **`include-dev` in `licence-check`**
