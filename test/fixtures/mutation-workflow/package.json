@@ -1,0 +1,10 @@
+{
+  "name": "fixture-mutation-workflow",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A project for the run of mutation.yml in ci.yml. test:mutation is a stand-in for Stryker, so the run needs no install.",
+  "scripts": {
+    "test:mutation": "node stand-in-stryker.mjs",
+    "test:mutation:canary": "node stand-in-stryker.mjs --canary"
+  }
+}

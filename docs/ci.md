@@ -13,6 +13,8 @@ Each workflow of this repository, what makes it fail, and where its rule is. [ca
 | `ci.yml` `workflow-lint` | actionlint and zizmor findings in `.github/`, from this repository's own `workflow-lint.yml` | The workflows |
 | `ci.yml` `security` | A secret anywhere in the history, or a fixable CRITICAL or HIGH finding, from this repository's own `security.yml` | `.gitleaks.toml`, `.trivyignore.yaml` |
 | `ci.yml` `scorecard` | Nothing. It reports the OpenSSF Scorecard checks | The repository settings and the workflows |
+| `ci.yml` `mutation` | This repository's own `mutation.yml`, on `test/fixtures/mutation-workflow`, with a stand-in for Stryker. On a pull request, it mutates the fixture files that the pull request changes. On `main` and the schedule, it runs the full run in two shards. It fails when the workflow cannot plan, run, upload or merge, or when the score is not within one point above the floor of the fixture | `mutation.yml`, the fixture |
+| `ci.yml` `mutation-full-run` | The same, with `full-run: true`, on a pull request only. Thus each pull request runs the shards and the `score` job | `mutation.yml`, the fixture |
 | `pr-hygiene.yml` | A branch or an issue link that does not follow the convention | [CONTRIBUTING.md](../CONTRIBUTING.md#branches-commits-and-pull-requests) |
 | `release.yml` | A change of `version` in `package.json` with no CHANGELOG section for it | [CONTRIBUTING.md](../CONTRIBUTING.md#releases) |
 | `settings.yml` (weekly) | A repository setting that differs from the checklist of repo-template. A failure opens an issue | `.repo-settings.json` |

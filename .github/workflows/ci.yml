@@ -2,8 +2,8 @@ name: CI
 
 # This repository's own gates. The scripts behind the composite actions are
 # unit-tested with Node's own runner, so the repository needs no install; the
-# two reusable workflows are run against this repository, which is how they
-# are proved to be callable at all.
+# reusable workflows are run against this repository, which is how they are
+# proved to be callable at all.
 on:
   pull_request:
   push:
@@ -88,6 +88,13 @@ jobs:
         uses: ./.github/actions/coverage-ratchet # zizmor: ignore[self-repository]
         with:
           working-directory: test/fixtures/coverage-ratchet/pass
+
+      # The config imports a package that is not installed, so the step also
+      # fails if the action imports the config.
+      - name: mutation-ratchet
+        uses: ./.github/actions/mutation-ratchet # zizmor: ignore[self-repository]
+        with:
+          working-directory: test/fixtures/mutation-ratchet/pass
 
       - name: audit-check
         uses: ./.github/actions/audit-check # zizmor: ignore[self-repository]
@@ -213,6 +220,13 @@ jobs:
         with:
           working-directory: test/fixtures/coverage-ratchet/fail
 
+      - name: mutation-ratchet (must fail)
+        id: mutation-ratchet
+        continue-on-error: true
+        uses: ./.github/actions/mutation-ratchet # zizmor: ignore[self-repository]
+        with:
+          working-directory: test/fixtures/mutation-ratchet/fail
+
       - name: audit-check (must fail)
         id: audit-check
         continue-on-error: true
@@ -330,6 +344,7 @@ jobs:
       - name: Each fixture that must fail failed
         env:
           COVERAGE_RATCHET: ${{ steps.coverage-ratchet.outcome }}
+          MUTATION_RATCHET: ${{ steps.mutation-ratchet.outcome }}
           AUDIT_CHECK: ${{ steps.audit-check.outcome }}
           LICENCE_CHECK: ${{ steps.licence-check.outcome }}
           LICENCE_CHECK_INCLUDE_DEV: ${{ steps.licence-check-include-dev.outcome }}
@@ -346,7 +361,7 @@ jobs:
           NODE_VERSION_CHECK_ENGINES_MAJOR_VALUE: ${{ steps.node-version-check-engines-major-value.outcome }}
         run: |
           status=0
-          for name in COVERAGE_RATCHET AUDIT_CHECK LICENCE_CHECK LICENCE_CHECK_INCLUDE_DEV PACKAGE_CONTENTS_CHECK LINT_ALLOWLIST_CHECK LOCKFILE_NESTING_CHECK DEPENDABOT_REVIEW_FACTS DEPENDABOT_REVIEW DOCS_CHECK NODE_PATCH_CHECK BASELINE_CHECK NODE_VERSION_CHECK NODE_VERSION_CHECK_ENGINES_MAJOR NODE_VERSION_CHECK_ENGINES_MAJOR_VALUE; do
+          for name in COVERAGE_RATCHET MUTATION_RATCHET AUDIT_CHECK LICENCE_CHECK LICENCE_CHECK_INCLUDE_DEV PACKAGE_CONTENTS_CHECK LINT_ALLOWLIST_CHECK LOCKFILE_NESTING_CHECK DEPENDABOT_REVIEW_FACTS DEPENDABOT_REVIEW DOCS_CHECK NODE_PATCH_CHECK BASELINE_CHECK NODE_VERSION_CHECK NODE_VERSION_CHECK_ENGINES_MAJOR NODE_VERSION_CHECK_ENGINES_MAJOR_VALUE; do
             if [ "${!name}" != failure ]; then
               echo "::error::The fixture for ${name} that must fail ended in '${!name}'."
               status=1
@@ -356,6 +371,54 @@ jobs:
 
   workflow-lint:
     uses: ./.github/workflows/workflow-lint.yml # zizmor: ignore[self-repository]
+
+  # mutation.yml on a fixture whose `test:mutation` is a stand-in for Stryker:
+  # it writes a report for the files that it gets, so the plan, the shards,
+  # the artifacts and the combined score run with no install. On a pull
+  # request, this call mutates the fixture files that the pull request
+  # changes, often none, and the next call runs the full run in two shards.
+  # On main and the schedule, this call runs the full run.
+  mutation:
+    uses: ./.github/workflows/mutation.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
+      actions: read
+    with:
+      working-directory: test/fixtures/mutation-workflow
+      shards: 2
+      canary-command: npm run test:mutation:canary
+      artifact-name: mutation-auto
+      retention-days: 1
+      timeout-minutes: 10
+
+  mutation-full-run:
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/mutation.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
+      actions: read
+    with:
+      working-directory: test/fixtures/mutation-workflow
+      shards: 2
+      full-run: true
+      artifact-name: mutation-full
+      retention-days: 1
+      timeout-minutes: 10
+
+  # One shard, the default: download-artifact then extracts the one report
+  # straight into the path, not into a directory of its own (#104).
+  mutation-one-shard:
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/mutation.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
+      actions: read
+    with:
+      working-directory: test/fixtures/mutation-workflow
+      full-run: true
+      artifact-name: mutation-one
+      retention-days: 1
+      timeout-minutes: 10
 
   # Published from main and the schedule only. On a pull request it scores
   # the branch, which proves the workflow is callable, and publishes nothing.

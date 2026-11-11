@@ -30,7 +30,9 @@ not conform, rename it, and open the pull request from the new name.
 - **Do not put `${{ }}` in a `run:` block.** The inputs of an action and the
   text of a pull request get to a shell through `env:`.
 - **Pin each `uses:` to a full SHA, with `# vX.Y.Z` after it.** In this
-  repository, call its own actions with `./`, not `$/`.
+  repository, call its own actions with `./`, not `$/`. In a reusable
+  workflow, `./` is the caller's checkout: CI here passes, and each consumer
+  fails. Pin them to a release there ([ADR 0005](docs/adr/0005-the-mutation-workflow-takes-its-scripts-from-the-commit-of-its-call.md)).
 - **Do not write a SHA or a version in an example in the documents.** Use
   `<sha> # vX.Y.Z`. An example with a real SHA is wrong after the next
   release.

@@ -16,10 +16,11 @@ A reusable workflow is a job. Call it under `jobs:` with `uses:`.
 |---|---|---|
 | [`security.yml`](../.github/workflows/security.yml) | gitleaks scans the full history for secrets. Trivy scans the tree for vulnerabilities and misconfiguration, at CRITICAL and HIGH. Trivy ignores a vulnerability that has no fix, and reads `.trivyignore.yaml` if the file exists. | `permissions: contents: read, pull-requests: read`. A `schedule` of its own, because both checks can fail with no push. |
 | [`workflow-lint.yml`](../.github/workflows/workflow-lint.yml) | actionlint and zizmor read the `.github/` directory of the caller. | A runner with Go and shellcheck. `ubuntu-latest` has both. |
+| [`mutation.yml`](../.github/workflows/mutation.yml) | Stryker mutates the code in the `mutate` list of the Stryker config. On a pull request, it mutates the files in the list that the pull request changes, and the files in the list that its changed tests import, and Stryker holds them to `thresholds.break`. On each other event, it mutates the full list, in `shards` jobs, and a last job holds the combined score to the floor. That job also fails when the score is more than `slack` points above the floor, and gives the floor to write. Each report is an artifact, also when the run fails. | `permissions: contents: read, actions: read`. A `schedule` and `pull_request`. A Stryker config with a `mutate` list of string literals and the `json` reporter. With `shards` above 1, a `break` that is `null` when `MUTATION_SHARD` is `1`. [consuming.md](consuming.md#run-the-mutation-workflow) has the detail. Do not make it a required check. |
 | [`scorecard.yml`](../.github/workflows/scorecard.yml) | OpenSSF Scorecard checks branch protection, token permissions, pinned dependencies, code review and the other Scorecard checks. It publishes the result for the badge, and uploads the findings to code scanning. It reports and does not fail. | `permissions: contents: read, actions: read, id-token: write, security-events: write`. A workflow of its own, on `push` to `main` and a weekly `schedule`, with no top-level `env`, `defaults` or write permission. A private repository sets `publish-results` and `upload-sarif` to `false`. |
 
-`security.yml` and `workflow-lint.yml` take `runs-on` as a JSON array, with
-the default `["ubuntu-latest"]`. Thus a caller can give the labels of a
+`security.yml`, `workflow-lint.yml` and `mutation.yml` take `runs-on` as a
+JSON array, with the default `["ubuntu-latest"]`. Thus a caller can give the labels of a
 self-hosted runner. `scorecard.yml` does not: Scorecard publishes only from a
 runner that GitHub hosts. No workflow puts its jobs in a container. A repository on a
 persistent runner that needs a job container keeps that job in its own
@@ -39,6 +40,7 @@ the `PATH` of the runner, and they need Node 22 or later.
 | [`setup-node-project`](../.github/actions/setup-node-project/action.yml) | Installs Node from `.nvmrc`, restores the npm cache, and runs `npm ci --ignore-scripts`. | `.nvmrc`, the lockfile |
 | [`playwright-browser`](../.github/actions/playwright-browser/action.yml) | Installs one Playwright browser, cached on the resolved Playwright version. It installs the system packages on each run. | `@playwright/test` |
 | [`coverage-ratchet`](../.github/actions/coverage-ratchet/action.yml) | Fails when a Vitest coverage floor is more than `slack` points below the measurement. The floors for each glob are included. It prints the block to write. | `vitest.config.ts`, `coverage/coverage-summary.json` |
+| [`mutation-ratchet`](../.github/actions/mutation-ratchet/action.yml) | Fails when the Stryker mutation score is more than `slack` points above `thresholds.break`, and gives the floor to write. It also fails below the floor. It counts the status of each mutant in the report, as Stryker does. It reads the config as text, and does not import it. | `reports/mutation/mutation.json`, `stryker.config.mjs` |
 | [`audit-check`](../.github/actions/audit-check/action.yml) | Runs `npm audit --omit=dev`, and fails at `high`. Each exception has a reason and an expiry. An exception that has expired, or that no advisory needs, fails. | `.audit-exceptions.json` |
 | [`licence-check`](../.github/actions/licence-check/action.yml) | Fails when the licence of a production dependency is not on the allowlist. With `include-dev`, it also checks each devDependency. It reads the `license` fields of the lockfile, and installs nothing. | `.licence-allowlist.json`, `package-lock.json` |
 | [`dependabot-review-facts`](../.github/actions/dependabot-review-facts/action.yml) | Writes the facts of a dependency update to a JSON file: the packages whose version changed, a 0.x minor move, each new nested copy, where the repository names each package, and the pull request's title and body. It runs nothing from the checkout. It never fails on what it finds. | `package-lock.json`, `fetch-depth: 2` |
@@ -61,6 +63,10 @@ the `PATH` of the runner, and they need Node 22 or later.
 |---|---|---|---|
 | `setup-node-project` | `ignore-scripts` | `true` | A dependency needs its install script. Name the dependency in the workflow, with the reason. |
 | `coverage-ratchet` | `slack` | `1` | Not usually. A larger slack lets the floor fall behind the measurement. |
+| `mutation-ratchet`, `mutation.yml` | `slack` | `1` | Not usually. A larger slack lets the floor fall behind the score. |
+| `mutation.yml` | `shards` | `1` | A job of the full run gets near its `timeout-minutes`. Add one shard. Do not raise the limit. |
+| `mutation.yml` | `command` | `npm run test:mutation` | Stryker runs from another script. The workflow adds `--mutate <files>` at the end, after `--` for an `npm` command. |
+| `mutation.yml` | `canary-command` | empty | Set it to a run of one small file with good tests, and a check of its report. A broken runner then fails before the long run. |
 | `audit-check` | `level` | `high` | Not usually. The level is the same in each repository on purpose. |
 | `licence-check` | `include-dev` | `false` | A bundler copies the devDependencies into what the repository ships, as in a SvelteKit app. Set it to `true`, and the check also reads them. |
 | `pr-hygiene` | `types` | `feature,fix,refactor,docs,ci,chore` | The repository uses a different list of branch types. |
@@ -75,10 +81,10 @@ the `PATH` of the runner, and they need Node 22 or later.
 
 ## The commands behind the actions
 
-Fifteen actions run a script that is also a command. `npm` installs these
+Sixteen actions run a script that is also a command. `npm` installs these
 `bin` names: `audit-check`, `baseline-check`, `changelog-check`,
 `coverage-ratchet`, `dependabot-review`, `dependabot-review-facts`,
-`docs-check`, `licence-check`, `lint-allowlist-check`, `lockfile-nesting-check`, `node-patch-check`,
+`docs-check`, `licence-check`, `lint-allowlist-check`, `lockfile-nesting-check`, `mutation-ratchet`, `node-patch-check`,
 `node-version-check`, `package-contents-check`, `pr-hygiene` and `repo-settings-check`. The arguments of a command are the same as the
 arguments that the action gives. [consuming.md](consuming.md) tells you how
 to run them.

@@ -31,7 +31,9 @@ gives the rule for the shape:
 
 - **A reusable workflow** (`on: workflow_call`) is for a complete job, with
   its own runner, permissions and timeout, that needs no file from this
-  repository except its YAML.
+  repository except its YAML. A job that needs a script gets it at the
+  commit of its call, as `mutation.yml` does
+  ([ADR 0005](docs/adr/0005-the-mutation-workflow-takes-its-scripts-from-the-commit-of-its-call.md)).
 - **A composite action** (`.github/actions/<name>/action.yml`) is for a step,
   or for a check that runs a script from this repository.
 
@@ -52,7 +54,9 @@ and [docs/testing.md](docs/testing.md). These are the rules that people break:
 ## Pins
 
 **Pin each `uses:` to a full SHA, with `# vX.Y.Z` after it.** In this
-repository, a workflow calls its own actions with `./`.
+repository, a workflow calls its own actions with `./`. A reusable workflow
+cannot, because there `./` is the checkout of the caller: it pins them to a
+release.
 [docs/dependencies.md](docs/dependencies.md) gives the reasons, and why this
 repository has no npm dependencies.
 

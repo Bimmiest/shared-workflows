@@ -20,3 +20,11 @@ each `.github/actions/*/action.yml`. A container image, where you use one, is
 
 In this repository, a workflow calls its own actions with `./`, not `$/`.
 actionlint does not accept `$/` yet. [`ci.yml`](../.github/workflows/ci.yml) gives the detail.
+
+A reusable workflow cannot call its own actions with `./`. In a reusable
+workflow, `./` is a path in the checkout of the caller, so the step works in
+the CI of this repository and fails in each consumer. Thus `mutation.yml`
+calls `setup-node-project` pinned to a release, as `settings.yml` calls
+`open-or-update-issue`, and Dependabot moves the pin. It gets its scripts at
+the commit of its call
+([ADR 0005](adr/0005-the-mutation-workflow-takes-its-scripts-from-the-commit-of-its-call.md)).
