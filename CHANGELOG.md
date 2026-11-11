@@ -16,6 +16,15 @@ says what a consumer gets when it bumps its pin.
   `devOptional` entries of the lockfile. A value that is not `true` or
   `false` fails the step. The default is `false`, so the verdict does not
   change: this is a minor version.
+- **`node-version-check`**, a new action
+  ([#100](https://github.com/Bimmiest/shared-workflows/issues/100)). It
+  fails when `.nvmrc` is not in the Node range of `devEngines.runtime` or
+  `engines.node` in `package.json`. It also fails when the lower bound of
+  the `devEngines` range is not on the major of `.nvmrc`, so a move to the
+  next major cannot leave `package.json` behind. With `engines-major: true`,
+  this rule also applies to `engines.node`: set it in an app, and keep
+  `false` in a library. A field that is not there is skipped, with a
+  notice. A new action is a minor version.
 
 ## 1.12.0 — 2026-11-10
 

@@ -192,6 +192,20 @@ jobs:
           stacks: gitops-config
           working-directory: test/fixtures/baseline-check/forgejo
 
+      # An app, whose engines is its own toolchain, so engines-major is on.
+      - name: node-version-check
+        uses: ./.github/actions/node-version-check # zizmor: ignore[self-repository]
+        with:
+          engines-major: true
+          working-directory: test/fixtures/node-version-check/pass
+
+      # A library: engines is on an older major than .nvmrc. It passes only
+      # when engines-major stays false.
+      - name: node-version-check, a library
+        uses: ./.github/actions/node-version-check # zizmor: ignore[self-repository]
+        with:
+          working-directory: test/fixtures/node-version-check/library
+
       - name: coverage-ratchet (must fail)
         id: coverage-ratchet
         continue-on-error: true
@@ -286,6 +300,32 @@ jobs:
         with:
           working-directory: test/fixtures/baseline-check/fail
 
+      - name: node-version-check (must fail)
+        id: node-version-check
+        continue-on-error: true
+        uses: ./.github/actions/node-version-check # zizmor: ignore[self-repository]
+        with:
+          working-directory: test/fixtures/node-version-check/fail
+
+      # The fixture that passes without the input, so it fails only when
+      # engines-major gets to the script.
+      - name: node-version-check, a library with engines-major (must fail)
+        id: node-version-check-engines-major
+        continue-on-error: true
+        uses: ./.github/actions/node-version-check # zizmor: ignore[self-repository]
+        with:
+          engines-major: true
+          working-directory: test/fixtures/node-version-check/library
+
+      # The fixture that passes, so it fails only on the value of the input.
+      - name: node-version-check, engines-major is not true or false (must fail)
+        id: node-version-check-engines-major-value
+        continue-on-error: true
+        uses: ./.github/actions/node-version-check # zizmor: ignore[self-repository]
+        with:
+          engines-major: 'yes'
+          working-directory: test/fixtures/node-version-check/pass
+
       # `outcome` is the result before continue-on-error turns it green.
       - name: Each fixture that must fail failed
         env:
@@ -301,9 +341,12 @@ jobs:
           DOCS_CHECK: ${{ steps.docs-check.outcome }}
           NODE_PATCH_CHECK: ${{ steps.node-patch-check.outcome }}
           BASELINE_CHECK: ${{ steps.baseline-check.outcome }}
+          NODE_VERSION_CHECK: ${{ steps.node-version-check.outcome }}
+          NODE_VERSION_CHECK_ENGINES_MAJOR: ${{ steps.node-version-check-engines-major.outcome }}
+          NODE_VERSION_CHECK_ENGINES_MAJOR_VALUE: ${{ steps.node-version-check-engines-major-value.outcome }}
         run: |
           status=0
-          for name in COVERAGE_RATCHET AUDIT_CHECK LICENCE_CHECK LICENCE_CHECK_INCLUDE_DEV PACKAGE_CONTENTS_CHECK LINT_ALLOWLIST_CHECK LOCKFILE_NESTING_CHECK DEPENDABOT_REVIEW_FACTS DEPENDABOT_REVIEW DOCS_CHECK NODE_PATCH_CHECK BASELINE_CHECK; do
+          for name in COVERAGE_RATCHET AUDIT_CHECK LICENCE_CHECK LICENCE_CHECK_INCLUDE_DEV PACKAGE_CONTENTS_CHECK LINT_ALLOWLIST_CHECK LOCKFILE_NESTING_CHECK DEPENDABOT_REVIEW_FACTS DEPENDABOT_REVIEW DOCS_CHECK NODE_PATCH_CHECK BASELINE_CHECK NODE_VERSION_CHECK NODE_VERSION_CHECK_ENGINES_MAJOR NODE_VERSION_CHECK_ENGINES_MAJOR_VALUE; do
             if [ "${!name}" != failure ]; then
               echo "::error::The fixture for ${name} that must fail ended in '${!name}'."
               status=1

@@ -1,0 +1,46 @@
+name: Node version check
+description: >-
+  `.nvmrc` agrees with the Node ranges in `package.json`. It must be in the
+  range of the `node` entry of `devEngines.runtime`, and that range's lower
+  bound must be on the major of `.nvmrc`. It must be in `engines.node`, and,
+  with `engines-major`, so must that lower bound. A field that is not there
+  is skipped with a notice. Needs no install and no network.
+inputs:
+  nvmrc:
+    description: The file holding the exact pinned version.
+    default: .nvmrc
+  package-json:
+    description: The manifest holding `engines` and `devEngines`.
+    default: package.json
+  engines-major:
+    description: >-
+      `true` also fails when the lower bound of `engines.node` is not on the
+      major of `.nvmrc`. Set it in an app, whose `engines` is its own
+      toolchain. Leave it `false` in a library, whose `engines` says which
+      Node its users can run.
+    default: 'false'
+  working-directory:
+    description: Where the two paths are resolved from.
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: .nvmrc, engines and devEngines agree on Node
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        NVMRC: ${{ inputs.nvmrc }}
+        PACKAGE_JSON: ${{ inputs.package-json }}
+        ENGINES_MAJOR: ${{ inputs.engines-major }}
+        SCRIPT: ${{ github.action_path }}/node-version.mjs
+      # Any other value fails: a misspelt `true` would check less than the
+      # caller asked for, and pass.
+      run: |
+        case "$ENGINES_MAJOR" in
+          true) node "$SCRIPT" --nvmrc "$NVMRC" --package-json "$PACKAGE_JSON" --engines-major ;;
+          false) node "$SCRIPT" --nvmrc "$NVMRC" --package-json "$PACKAGE_JSON" ;;
+          *)
+            echo "::error::engines-major is \"$ENGINES_MAJOR\". Set it to true or false."
+            exit 1
+            ;;
+        esac

@@ -1,0 +1,8 @@
+{
+  "name": "node-version-check-library",
+  "private": true,
+  "description": "A library, as pcre2-wasm-utf16: its users can run Node 22.6, and its own CI runs 26.13.0. It passes without engines-major, and fails with it.",
+  "engines": {
+    "node": ">=22.6.0"
+  }
+}
