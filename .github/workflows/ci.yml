@@ -405,6 +405,21 @@ jobs:
       retention-days: 1
       timeout-minutes: 10
 
+  # One shard, the default: download-artifact then extracts the one report
+  # straight into the path, not into a directory of its own (#104).
+  mutation-one-shard:
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/mutation.yml # zizmor: ignore[self-repository]
+    permissions:
+      contents: read
+      actions: read
+    with:
+      working-directory: test/fixtures/mutation-workflow
+      full-run: true
+      artifact-name: mutation-one
+      retention-days: 1
+      timeout-minutes: 10
+
   # Published from main and the schedule only. On a pull request it scores
   # the branch, which proves the workflow is callable, and publishes nothing.
   scorecard:

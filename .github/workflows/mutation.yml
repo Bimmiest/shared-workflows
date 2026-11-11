@@ -288,6 +288,25 @@ jobs:
           pattern: ${{ inputs.artifact-name }}-*-of-*
           path: ${{ runner.temp }}/mutation-shards
 
+      # download-artifact puts each artifact in a directory of its own only
+      # when the pattern matches more than one. With one shard, the report is
+      # extracted straight into the path, and the score would read
+      # mutation.html as a shard. Found by a run from a consumer (#104).
+      - name: Put a single shard report in its own directory
+        env:
+          SHARDS: ${{ runner.temp }}/mutation-shards
+          PREFIX: ${{ inputs.artifact-name }}
+          EXPECTED: ${{ inputs.shards }}
+        run: |
+          if [ -f "$SHARDS/mutation.json" ]; then
+            if [ "$EXPECTED" != "1" ]; then
+              echo "::error::Only one shard report was downloaded, and the run has $EXPECTED shards."
+              exit 1
+            fi
+            mkdir "$SHARDS/$PREFIX-1-of-1"
+            find "$SHARDS" -mindepth 1 -maxdepth 1 ! -name "$PREFIX-1-of-1" -exec mv {} "$SHARDS/$PREFIX-1-of-1/" \;
+          fi
+
       - name: Combined score against the floor
         working-directory: ${{ inputs.working-directory }}
         env:
