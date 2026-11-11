@@ -1,0 +1,15 @@
+{
+  "name": "node-version-check-fail",
+  "private": true,
+  "description": ".nvmrc moved to Node 26 and package.json stayed on 24. Both ranges accept 26.13.0, but the devEngines lower bound is on 24, so it fails with the default inputs.",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": ">=24.0.0",
+      "onFail": "error"
+    }
+  }
+}

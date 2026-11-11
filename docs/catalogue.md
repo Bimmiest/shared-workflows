@@ -50,6 +50,7 @@ the `PATH` of the runner, and they need Node 22 or later.
 | [`changelog-check`](../.github/actions/changelog-check/action.yml) | Fails when a pull request changes a file in `paths` and does not change `CHANGELOG.md`. Tests are ignored. The `no-changelog` label and `dependabot[bot]` are exempt. | The files of the pull request. On a private repository the job needs `pull-requests: read` |
 | [`docs-check`](../.github/actions/docs-check/action.yml) | Fails on a relative Markdown link that does not resolve. Fails when the ADR index does not agree with `docs/adr/`, is not in order, or does not explain a gap. Fails when a root `LICENSE-*` file is not in the README. With `readmeMaxLines`, fails on a longer README. With `maxLines`, fails on each Markdown file that is longer than the first rule that matches it, less the files that `maxLinesExceptions` caps until a date. With `docTypes`, fails on a topic file whose frontmatter has no allowed `type`. With `docsIndex`, fails when the index of `docs/` has no row for a topic file, a row for no file, or rows out of path order. With `ste`, warns on each word that ASD-STE100 does not allow, in the files that `ste` names. | The Markdown files, `.docs-check.json` if it exists |
 | [`node-patch-check`](../.github/actions/node-patch-check/action.yml) | Fails when `.nvmrc` is not the newest patch of its Node line. It asks nodejs.org. With `eol-days`, it also fails when the line ends in fewer days than that, from the Node release schedule. Use `warn-only` on a pull request. | `.nvmrc` |
+| [`node-version-check`](../.github/actions/node-version-check/action.yml) | Fails when `.nvmrc` is not in the Node range of `devEngines.runtime` or `engines.node`. It also fails when the lower bound of the `devEngines` range is not on the major of `.nvmrc`. With `engines-major`, this rule also applies to `engines.node`. It skips a field that is not there, with a notice. A range can have `>=`, `>`, `<=`, `<`, `=`, `^`, `~` and a bare version, separated by spaces. Each other form fails. | `.nvmrc`, `package.json` |
 | [`repo-settings-check`](../.github/actions/repo-settings-check/action.yml) | Fails when a repository setting differs from the checklist of `repo-template`: the merge methods and the squash body, branch deletion, the wiki, the Actions permissions and SHA pinning, fork approval, private vulnerability reporting, Dependabot alerts, secret scanning, push protection, and the ruleset on `main`. A setting that the token cannot read fails. Each exception has a reason, and an exception that nothing needs fails. | A `token` with "Administration: read", `.repo-settings.json` if it exists |
 | [`baseline-check`](../.github/actions/baseline-check/action.yml) | Fails when the repository lacks a file of the baseline standard (`repo-template` `docs/standard.md`): the core set of its forge (the governance files, the issue forms, the workflows, the scanner and check configs, the ADR index), the docs index and the six topic files for a stack with code, and the Node toolchain files for `node-ts`. Each exception has a reason, and an exception for a file that exists fails. The lists are in the action, so a file added to a list is a major version. | `.baseline-exceptions.json` if it exists |
 | [`open-or-update-issue`](../.github/actions/open-or-update-issue/action.yml) | Keeps one open issue for each label, for a scheduled check. While the finding stays, it adds a comment to the issue. | The job needs `issues: write` |
@@ -66,6 +67,7 @@ the `PATH` of the runner, and they need Node 22 or later.
 | `changelog-check` | `paths` | `src/**` | The files that a user gets are not in `src/`, for example the actions of this repository. |
 | `node-patch-check` | `warn-only` | `false` | Set it to `true` on a pull request, so that a Node release does not block an unrelated change. |
 | `node-patch-check` | `eol-days` | `0` (off) | Set it to `90`, so that a scheduled run fails before the Node line ends, and the move is filed as work. |
+| `node-version-check` | `engines-major` | `false` | The repository is an app, and its `engines` gives its own toolchain. Set it to `true`. A library keeps `false`, because its `engines` gives the Node versions of its users. |
 | `baseline-check` | `forge` | `github` | The repository is on Forgejo. The core set is then in `.forgejo/`, with `renovate.json` and no `LICENSE`. |
 | `baseline-check` | `stacks` | empty | The repository is not only Node. Name each stack, space-separated, for example `rust node-ts`, or `gitops-config` for a repository with no documentation layer. Empty is the documentation layer, and the Node files where there is a `package-lock.json`. |
 | `repo-settings-check` | `token` | none | Always. GITHUB_TOKEN cannot read most of the settings. Pass a secret, for example `SETTINGS_READ_TOKEN`. |
@@ -73,10 +75,10 @@ the `PATH` of the runner, and they need Node 22 or later.
 
 ## The commands behind the actions
 
-Fourteen actions run a script that is also a command. `npm` installs these
+Fifteen actions run a script that is also a command. `npm` installs these
 `bin` names: `audit-check`, `baseline-check`, `changelog-check`,
 `coverage-ratchet`, `dependabot-review`, `dependabot-review-facts`,
 `docs-check`, `licence-check`, `lint-allowlist-check`, `lockfile-nesting-check`, `node-patch-check`,
-`package-contents-check`, `pr-hygiene` and `repo-settings-check`. The arguments of a command are the same as the
+`node-version-check`, `package-contents-check`, `pr-hygiene` and `repo-settings-check`. The arguments of a command are the same as the
 arguments that the action gives. [consuming.md](consuming.md) tells you how
 to run them.
