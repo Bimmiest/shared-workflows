@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { problems, productionPackages, run, satisfies } from './licence-check.mjs';
+import { problems, run, satisfies, shippedPackages } from './licence-check.mjs';
 
 const allowed = new Set(['MIT', 'Apache-2.0', 'BSD-3-Clause', 'GPL-2.0-only WITH Classpath-exception-2.0']);
 
@@ -48,10 +48,15 @@ const lock = {
   },
 };
 
-describe('productionPackages', () => {
+describe('shippedPackages', () => {
   it('lists node_modules entries that are not dev, devOptional or links, naming nested packages correctly', () => {
-    const names = productionPackages(lock).map((p) => `${p.name}@${p.version}`);
+    const names = shippedPackages(lock).map((p) => `${p.name}@${p.version}`);
     assert.deepEqual(names, ['a@1.0.0', 'b@2.0.0', 'plat@4.0.0', 'unlicensed@5.0.0']);
+  });
+
+  it('adds the dev and devOptional entries with includeDev, and still skips the root, workspaces and links', () => {
+    const names = shippedPackages(lock, { includeDev: true }).map((p) => `${p.name}@${p.version}`);
+    assert.deepEqual(names, ['a@1.0.0', 'b@2.0.0', 'dev-only@3.0.0', 'dev-opt@3.1.0', 'plat@4.0.0', 'unlicensed@5.0.0']);
   });
 });
 
@@ -59,23 +64,36 @@ describe('problems', () => {
   const allowlist = { licences: ['MIT', 'BSD-3-Clause'], packages: {} };
 
   it('names a package with no recorded licence and says what to do', () => {
-    const out = problems(productionPackages(lock), allowlist);
+    const out = problems(shippedPackages(lock), allowlist);
     assert.equal(out.length, 1);
     assert.match(out[0], /^unlicensed@5\.0\.0 \(node_modules\/unlicensed\) has no licence recorded, which is not in/);
   });
 
   it('accepts a named package at a version somebody read, and refuses another version', () => {
     const named = { ...allowlist, packages: { unlicensed: { versions: ['5.0.0'], licence: 'MIT', reason: 'read it' } } };
-    assert.deepEqual(problems(productionPackages(lock), named), []);
+    assert.deepEqual(problems(shippedPackages(lock), named), []);
     const bumped = { packages: { ...lock.packages, 'node_modules/unlicensed': { version: '5.1.0' } } };
-    const out = problems(productionPackages(bumped), named);
+    const out = problems(shippedPackages(bumped), named);
     assert.match(out[0], /names only 5\.0\.0 of it. Read this version's LICENSE/);
   });
 
   it('fails a package entry nothing needs any more', () => {
     const named = { ...allowlist, packages: { gone: { versions: ['1.0.0'], licence: 'MIT', reason: 'r' }, unlicensed: { versions: ['5.0.0'] } } };
-    const out = problems(productionPackages(lock), named);
+    const out = problems(shippedPackages(lock), named);
     assert.deepEqual(out, ['.licence-allowlist.json names gone@1.0.0, which no production dependency needs. Remove it.']);
+  });
+
+  it('uses an entry for a dev package only with includeDev, and names the scope of a stale entry', () => {
+    const named = { licences: ['MIT', 'BSD-3-Clause'], packages: { 'dev-only': { versions: ['3.0.0'] }, unlicensed: { versions: ['5.0.0'] } } };
+    assert.deepEqual(problems(shippedPackages(lock), named), [
+      '.licence-allowlist.json names dev-only@3.0.0, which no production dependency needs. Remove it.',
+    ]);
+    const dev = problems(shippedPackages(lock, { includeDev: true }), named, '.licence-allowlist.json', { includeDev: true });
+    assert.equal(dev.length, 1);
+    assert.match(dev[0], /^dev-opt@3\.1\.0 \(node_modules\/dev-opt\) has `"GPL-3\.0-only"`, which is not in/);
+    const gone = { ...named, packages: { ...named.packages, 'dev-opt': { versions: ['3.1.0'] }, gone: { versions: ['1.0.0'] } } };
+    const stale = problems(shippedPackages(lock, { includeDev: true }), gone, '.licence-allowlist.json', { includeDev: true });
+    assert.deepEqual(stale, ['.licence-allowlist.json names gone@1.0.0, which no dependency needs. Remove it.']);
   });
 });
 
@@ -88,5 +106,15 @@ describe('run', () => {
     assert.equal(bad.code, 1);
     assert.ok(bad.lines.every((l) => l.startsWith('::error::')));
     assert.match(bad.lines.join('\n'), /custom\.json/);
+  });
+
+  it('checks the dev packages with includeDev, and counts them on success', () => {
+    const allowlist = { licences: ['MIT', 'BSD-3-Clause', 'GPL-3.0-only'], packages: { unlicensed: { versions: ['5.0.0'] } } };
+    const ok = run({ lock, allowlist, includeDev: true });
+    assert.equal(ok.code, 0);
+    assert.deepEqual(ok.lines, ['6 production and dev packages: every licence is on the allowlist.']);
+    const bad = run({ lock, allowlist: { ...allowlist, licences: ['MIT', 'BSD-3-Clause'] }, includeDev: true });
+    assert.equal(bad.code, 1);
+    assert.deepEqual(bad.lines.map((l) => l.split(' ')[0]), ['::error::dev-only@3.0.0', '::error::dev-opt@3.1.0']);
   });
 });

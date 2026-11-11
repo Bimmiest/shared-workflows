@@ -7,6 +7,16 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+### Added
+
+- **`include-dev` in `licence-check`**
+  ([#98](https://github.com/Bimmiest/shared-workflows/issues/98)). Set it to
+  `true` when a bundler copies the devDependencies into what the repository
+  ships, as in a SvelteKit app. The check then also reads the `dev` and
+  `devOptional` entries of the lockfile. A value that is not `true` or
+  `false` fails the step. The default is `false`, so the verdict does not
+  change: this is a minor version.
+
 ## 1.12.0 — 2026-11-10
 
 ### Added

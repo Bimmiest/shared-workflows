@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 /**
- * Whether every production dependency is licensed under something this
+ * Whether every dependency that ships is licensed under something this
  * repository has agreed to ship (propslab-ent #1603).
  *
- *   node licence-check.mjs [--lockfile package-lock.json] [--allowlist .licence-allowlist.json]
+ *   node licence-check.mjs [--lockfile package-lock.json] [--allowlist .licence-allowlist.json] [--include-dev]
  *
- * **Production** is what `npm ci --omit=dev` installs, so a lockfile entry
- * marked `dev` or `devOptional` is not read. Optional packages (platform
- * binaries) are, because they ship where they apply.
+ * **What ships** is, by default, what `npm ci --omit=dev` installs, so a
+ * lockfile entry marked `dev` or `devOptional` is not read. Optional packages
+ * (platform binaries) are, because they ship where they apply.
+ * `--include-dev` reads the `dev` and `devOptional` entries too, for a
+ * repository whose bundler copies its devDependencies into the build: a
+ * SvelteKit app ships them and has no production dependencies at all (#98).
  *
  * **The lockfile is the source**, not `node_modules` and not a new dependency:
  * npm records each package's `license` field in `package-lock.json`, so this
@@ -31,14 +34,18 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
 
-/** Every production package the lockfile installs, as `{ name, version, license, where }`. */
-export function productionPackages(lock) {
+/**
+ * Every package the lockfile installs for production, as
+ * `{ name, version, license, where }`. With `includeDev`, the `dev` and
+ * `devOptional` packages as well.
+ */
+export function shippedPackages(lock, { includeDev = false } = {}) {
   const found = [];
   for (const [where, entry] of Object.entries(lock.packages ?? {})) {
     // The root and workspace entries are this repository, not dependencies;
     // a link is a workspace seen from node_modules.
     if (!where.includes('node_modules/') || entry.link) continue;
-    if (entry.dev || entry.devOptional) continue;
+    if (!includeDev && (entry.dev || entry.devOptional)) continue;
     const name = entry.name ?? where.slice(where.lastIndexOf('node_modules/') + 'node_modules/'.length);
     found.push({ name, version: entry.version, license: entry.license, where });
   }
@@ -100,8 +107,13 @@ export function satisfies(license, allowed) {
   }
 }
 
-/** Every production package the allowlist does not cover, as sentences, plus stale package entries. */
-export function problems(packages, allowlist, file = '.licence-allowlist.json') {
+/**
+ * Every package the allowlist does not cover, as sentences, plus stale
+ * package entries. `includeDev` says whether `packages` holds the dev ones,
+ * so that a stale entry names what it was checked against.
+ */
+export function problems(packages, allowlist, file = '.licence-allowlist.json', { includeDev = false } = {}) {
+  const scope = includeDev ? 'dependency' : 'production dependency';
   const allowed = new Set(allowlist.licences ?? []);
   const named = allowlist.packages ?? {};
   const used = new Set();
@@ -124,23 +136,25 @@ export function problems(packages, allowlist, file = '.licence-allowlist.json') 
   // nobody will re-read; it goes when the need does.
   for (const [name, entry] of Object.entries(named)) {
     for (const version of entry.versions ?? []) {
-      if (!used.has(`${name}@${version}`)) out.push(`${file} names ${name}@${version}, which no production dependency needs. Remove it.`);
+      if (!used.has(`${name}@${version}`)) out.push(`${file} names ${name}@${version}, which no ${scope} needs. Remove it.`);
     }
   }
   return out;
 }
 
-export function run({ lock, allowlist, file }) {
-  const packages = productionPackages(lock);
-  const found = problems(packages, allowlist, file);
+/** The verdict on one lockfile against the allowlist, as lines and an exit code. */
+export function run({ lock, allowlist, file, includeDev = false }) {
+  const packages = shippedPackages(lock, { includeDev });
+  const found = problems(packages, allowlist, file, { includeDev });
   if (found.length) return { lines: found.map((problem) => `::error::${problem}`), code: 1 };
-  return { lines: [`${packages.length} production packages: every licence is on the allowlist.`], code: 0 };
+  const kind = includeDev ? 'production and dev' : 'production';
+  return { lines: [`${packages.length} ${kind} packages: every licence is on the allowlist.`], code: 0 };
 }
 
 /** A starting allowlist, printed when a repository has none yet. */
 export const STARTER = {
   $comment:
-    'What a production dependency may be licensed under. `licences` are SPDX identifiers accepted anywhere; `packages` names the rest, pinned to the versions somebody read, with the licence found and why it is acceptable.',
+    'What a dependency that ships may be licensed under. `licences` are SPDX identifiers accepted anywhere; `packages` names the rest, pinned to the versions somebody read, with the licence found and why it is acceptable.',
   licences: ['MIT', 'Apache-2.0', 'BSD-2-Clause', 'BSD-3-Clause', 'ISC', '0BSD', 'BlueOak-1.0.0', 'Python-2.0', 'CC0-1.0', 'Unlicense'],
   packages: {},
 };
@@ -150,6 +164,7 @@ function main() {
     options: {
       lockfile: { type: 'string', default: 'package-lock.json' },
       allowlist: { type: 'string', default: '.licence-allowlist.json' },
+      'include-dev': { type: 'boolean', default: false },
     },
   });
   if (!existsSync(values.lockfile)) {
@@ -162,7 +177,12 @@ function main() {
     return 1;
   }
   const read = (file) => JSON.parse(readFileSync(file, 'utf8'));
-  const { lines, code } = run({ lock: read(values.lockfile), allowlist: read(values.allowlist), file: values.allowlist });
+  const { lines, code } = run({
+    lock: read(values.lockfile),
+    allowlist: read(values.allowlist),
+    file: values.allowlist,
+    includeDev: values['include-dev'],
+  });
   for (const line of lines) console.log(line);
   return code;
 }
