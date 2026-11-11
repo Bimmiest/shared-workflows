@@ -2,8 +2,9 @@ name: Licence check
 description: >-
   Every production dependency in the lockfile is licensed under something the
   repository's allowlist accepts, read from the `license` fields npm records in
-  `package-lock.json`. Needs no install and no network. Fails on a package the
-  list does not cover, and on a package entry nothing needs any more.
+  `package-lock.json`. With `include-dev`, every devDependency too. Needs no
+  install and no network. Fails on a package the list does not cover, and on a
+  package entry nothing needs any more.
 inputs:
   lockfile:
     description: The lockfile to read.
@@ -11,17 +12,34 @@ inputs:
   allowlist:
     description: The allowlist. When it is missing the step fails and prints a starting one.
     default: .licence-allowlist.json
+  include-dev:
+    description: >-
+      `true` also checks the `dev` and `devOptional` lockfile entries. Set it
+      when a bundler copies the devDependencies into what ships, as a
+      SvelteKit app does.
+    default: 'false'
   working-directory:
     description: Where the two paths are resolved from.
     default: .
 runs:
   using: composite
   steps:
-    - name: Production dependency licences
+    - name: Dependency licences
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       env:
         LOCKFILE: ${{ inputs.lockfile }}
         ALLOWLIST: ${{ inputs.allowlist }}
+        INCLUDE_DEV: ${{ inputs.include-dev }}
         SCRIPT: ${{ github.action_path }}/licence-check.mjs
-      run: node "$SCRIPT" --lockfile "$LOCKFILE" --allowlist "$ALLOWLIST"
+      # Any other value fails: a misspelt `true` would check less than the
+      # caller asked for, and pass.
+      run: |
+        case "$INCLUDE_DEV" in
+          true) node "$SCRIPT" --lockfile "$LOCKFILE" --allowlist "$ALLOWLIST" --include-dev ;;
+          false) node "$SCRIPT" --lockfile "$LOCKFILE" --allowlist "$ALLOWLIST" ;;
+          *)
+            echo "::error::include-dev is \"$INCLUDE_DEV\". Set it to true or false."
+            exit 1
+            ;;
+        esac

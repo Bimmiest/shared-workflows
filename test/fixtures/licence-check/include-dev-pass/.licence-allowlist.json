@@ -1,0 +1,10 @@
+{
+  "licences": ["MIT"],
+  "packages": {
+    "fixture-dev-named": {
+      "versions": ["2.0.0"],
+      "licence": "MIT",
+      "reason": "A fixture. Without include-dev this entry is stale, and the step fails."
+    }
+  }
+}
