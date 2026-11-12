@@ -111,9 +111,6 @@ jobs:
       id-token: write
       pull-requests: write
     steps:
-      - uses: actions/setup-node@<sha> # vX.Y.Z
-        with:
-          node-version: lts/*
       - uses: actions/download-artifact@<sha> # vX.Y.Z
         with:
           name: dependabot-review-facts

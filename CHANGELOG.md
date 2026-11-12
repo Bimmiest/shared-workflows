@@ -30,6 +30,15 @@ says what a consumer gets when it bumps its pin.
   gives the floor to write. It also fails below the floor. The default slack
   is 1 point. A new action is a minor version.
 
+### Changed
+
+- **`dependabot-review`** sets up its own Node, from the `.nvmrc` of this
+  repository ([#106](https://github.com/Bimmiest/shared-workflows/issues/106)).
+  The `review` job holds the credential and has no checkout, and the example
+  in `docs/consuming.md` set it up with `lts/*`, which moves to a new major
+  with no change to the workflow. Remove the `setup-node` step from the
+  `review` job; a step that stays does no harm.
+
 ## 1.13.0 — 2026-11-11
 
 ### Added
