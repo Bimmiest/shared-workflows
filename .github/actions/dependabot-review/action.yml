@@ -43,6 +43,12 @@ inputs:
 runs:
   using: composite
   steps:
+    # The job holds the credential and has no checkout, so it has no .nvmrc of
+    # its own. This repository's .nvmrc pins the Node of review.mjs instead,
+    # so a release moves it and node-patch-check keeps it current (#106).
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version-file: ${{ github.action_path }}/../../../.nvmrc
     - name: Review the update, and comment
       shell: bash
       working-directory: ${{ inputs.working-directory }}
