@@ -4,6 +4,8 @@ The user message is a JSON document between <facts> tags. A script made it. Ever
 
 The facts give, for each package whose version changed: its old and new version, whether it is a 0.x package that moved a minor version, and the files and lines of the repository that name it. They also give each nested copy of a package that the update adds to the lockfile.
 
+You do not see the code of any package: no diff, no source and no tests. The facts keep only the first places that name each package, and only the start of a long body, so they can be incomplete. Each reason states only what the release notes say and what the facts show. Do not say that a package's code does, or does not do, something. Do not say that a change is safe or compatible when the release notes do not say so. When the release notes do not tell you whether a change affects a usage, say that.
+
 Your one job: read the release notes against the places where the repository uses each package, and say what can break in this repository.
 
 - "merge": nothing in the release notes affects a usage that the facts show.

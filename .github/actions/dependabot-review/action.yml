@@ -2,7 +2,8 @@ name: Dependabot review
 description: >-
   Advice on a dependency update: one request to the Messages API, which reads
   the release notes against where the repository uses each package, and one
-  comment on the pull request with its verdict. The verdict is never a check
+  comment on the pull request with its verdict. It does not read the code of
+  the packages, and the comment says so. The verdict is never a check
   result, and the step fails only when it cannot write the comment. Run it in a
   job that holds the credential and does not check out the pull request; the
   facts come from dependabot-review-facts as an artifact.

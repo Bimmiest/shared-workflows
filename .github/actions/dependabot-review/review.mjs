@@ -118,13 +118,19 @@ function fileRef(file, facts, { serverUrl, repository, sha }) {
   return `[${label}](${href})`;
 }
 
-/** The comment: the verdict and reasons, then what the checks found. */
+/**
+ * What the review read, under each verdict (#105). The model gets only the
+ * facts, never a diff of a package, so a verdict says nothing about its code.
+ */
+export const SCOPE = 'This review read the release notes in the pull request against the places where this repository names each package. It did not read the code of the packages.';
+
+/** The comment: the verdict, what the review read, and the reasons, then what the checks found. */
 export function renderComment(review, facts, links = {}) {
   const lines = [MARKER, '### Advisory review of this update', ''];
   if (review.declined) {
     lines.push('The model declined to review this update, so there is no verdict. Read the release notes against the usages below.');
   } else {
-    lines.push(`**Verdict: ${review.verdict}.** This is advice. It is not a required check, and nothing merges because of it.`, '');
+    lines.push(`**Verdict: ${review.verdict}.** This is advice. It is not a required check, and nothing merges because of it.`, '', SCOPE, '');
     if (review.reasons.length === 0) lines.push('No reason was given.');
     for (const reason of review.reasons) {
       const ref = reason.file ? ` (${fileRef(reason.file, facts, { serverUrl: 'https://github.com', ...links })})` : '';
