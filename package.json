@@ -14,7 +14,7 @@
   },
   "scripts": {
     "test": "node --test '.github/actions/**/*.test.mjs'",
-    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include='.github/actions/**/*.mjs' --test-coverage-exclude='**/*.test.mjs' --test-coverage-lines=97 --test-coverage-branches=93 --test-coverage-functions=96 '.github/actions/**/*.test.mjs'"
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include='.github/actions/**/*.mjs' --test-coverage-exclude='**/*.test.mjs' --test-coverage-lines=97 --test-coverage-branches=94 --test-coverage-functions=97 '.github/actions/**/*.test.mjs'"
   },
   "bin": {
     "audit-check": ".github/actions/audit-check/audit-check.mjs",

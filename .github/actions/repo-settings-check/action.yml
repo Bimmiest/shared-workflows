@@ -4,8 +4,9 @@ description: >-
   the merge methods and the squash body, branch deletion, the wiki, the
   Actions permissions and SHA pinning, fork approval, private vulnerability
   reporting, Dependabot alerts, secret scanning and push protection, and the
-  ruleset on main. A setting that the token cannot read fails. Needs Node on
-  the PATH and no install.
+  ruleset on main. With `tagRuleset` in the config, also an active tag
+  ruleset that blocks updates and deletions of the release tags. A setting
+  that the token cannot read fails. Needs Node on the PATH and no install.
 inputs:
   token:
     description: >-
@@ -13,7 +14,7 @@ inputs:
       GITHUB_TOKEN cannot read most of these settings, so pass a secret.
     required: true
   config:
-    description: Optional JSON with `requiredChecks` (the check names that the main ruleset must require) and `exceptions` (`{ setting, reason }`).
+    description: Optional JSON with `requiredChecks` (the check names that the main ruleset must require), `tagRuleset` (the pattern of the release tags, for example `v*`, which an active tag ruleset must protect) and `exceptions` (`{ setting, reason }`).
     default: .repo-settings.json
   repository:
     description: The repository to check, as owner/name.
