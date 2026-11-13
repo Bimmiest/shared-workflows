@@ -18,11 +18,15 @@
  * The optional config:
  *
  *   { "requiredChecks": ["verify", "audit"],
+ *     "tagRuleset": "v*",
  *     "exceptions": [ { "setting": "main.pull-request", "reason": "…" } ] }
  *
- * `requiredChecks` are the names that the `main` ruleset must require. An
- * exception names a setting from SETTINGS, with the reason. An exception for
- * a setting that is correct fails, so the file cannot rot.
+ * `requiredChecks` are the names that the `main` ruleset must require.
+ * `tagRuleset` is the pattern of the release tags. Only a repository that
+ * sets it gets the `tags.*` settings, because a tag ruleset is a choice of
+ * the repository, not of the template (#41). An exception names a setting
+ * from SETTINGS, with the reason. An exception for a setting that is correct
+ * fails, so the file cannot rot.
  */
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
@@ -39,6 +43,33 @@ export const SOURCES = {
   reporting: '/private-vulnerability-reporting',
   alerts: '/vulnerability-alerts',
   rules: '/rules/branches/main',
+  // shortcut: reads the first 100 rulesets only. Follow the Link header when
+  // a repository gets near 100 rulesets.
+  tags: '/rulesets?targets=tag&per_page=100',
+};
+
+/** The ref that the rulesets API gives for a tag pattern: `v*` is `refs/tags/v*`. */
+export const tagRef = (pattern) => (pattern.startsWith('refs/tags/') ? pattern : `refs/tags/${pattern}`);
+
+/**
+ * Whether the conditions of a ruleset hold each tag of the ref pattern. An
+ * exclusion can remove some of those tags, and two glob patterns cannot be
+ * compared exactly, so a ruleset with an exclusion does not count.
+ */
+const covers = (conditions, ref) => (conditions?.ref_name?.include ?? []).some((include) => include === ref || include === '~ALL') && !(conditions?.ref_name?.exclude ?? []).length;
+
+/**
+ * A test that the tags of `config.tagRuleset` cannot get the change `type`.
+ * GitHub applies the rules of each active ruleset together, so the rule can
+ * come from any ruleset that covers the pattern. A ruleset in `evaluate`
+ * mode only reports, and a `disabled` one does nothing.
+ */
+const blocksTags = (type, change) => (rulesets, config) => {
+  const ref = tagRef(config.tagRuleset);
+  const covering = rulesets.filter((ruleset) => ruleset.target === 'tag' && covers(ruleset.conditions, ref) && ruleset.rules?.some((rule) => rule.type === type));
+  if (covering.some((ruleset) => ruleset.enforcement === 'active')) return true;
+  const inactive = covering.map((ruleset) => `\`${ruleset.name}\` is \`${ruleset.enforcement}\``);
+  return `No active tag ruleset on \`${ref}\` blocks ${change}${inactive.length ? `: ${inactive.join(', ')}` : ''}.`;
 };
 
 const hasRule = (type) => (rules) => rules.some((rule) => rule.type === type);
@@ -49,7 +80,8 @@ const requiredContexts = (rules) =>
  * Each setting the template sets, with the source it is read from, a test,
  * and what to change. A test returns true when the setting is correct, false
  * when it is not, undefined when the source does not say, and a string for a
- * finding with detail.
+ * finding with detail. A setting with `when` applies only to a config for
+ * which `when` returns true.
  */
 export const SETTINGS = {
   'merge.squash-only': {
@@ -137,18 +169,48 @@ export const SETTINGS = {
     },
     fix: 'Require the status checks by name, in the ruleset for main.',
   },
+  'tags.no-update': {
+    source: 'tags',
+    when: (config) => config.tagRuleset !== undefined,
+    test: blocksTags('update', 'updates'),
+    fix: 'Restrict updates in an active tag ruleset that targets the `tagRuleset` pattern with no exclusion, in Settings, Rules.',
+  },
+  'tags.no-deletion': {
+    source: 'tags',
+    when: (config) => config.tagRuleset !== undefined,
+    test: blocksTags('deletion', 'deletions'),
+    fix: 'Restrict deletions in an active tag ruleset that targets the `tagRuleset` pattern with no exclusion, in Settings, Rules.',
+  },
 };
+
+/** Whether the config asks for a setting. */
+const applies = (setting, config) => !setting.when || setting.when(config);
 
 /** The answer of one endpoint, read through `get(path)`, which resolves to `{ status, body }`. */
 async function read(get, source) {
-  const { status, body } = await get(SOURCES[source]);
+  const answer = await readPath(get, source, SOURCES[source]);
+  if (source !== 'tags' || !answer.ok) return answer;
+  // The list gives no conditions and no rules. GET by id gives both.
+  const rulesets = [];
+  for (const { id, target } of Array.isArray(answer.value) ? answer.value : []) {
+    if (target !== 'tag') continue;
+    const one = await readPath(get, source, `/rulesets/${id}`);
+    if (!one.ok) return one;
+    rulesets.push(one.value);
+  }
+  return { ok: true, value: rulesets };
+}
+
+/** The answer of one path of a source. A failure that is not at the path of the source names its own path. */
+async function readPath(get, source, suffix) {
+  const { status, body } = await get(suffix);
   // GitHub's own reason, which tells a missing permission from a plan that
   // does not offer the setting ("Upgrade to GitHub Pro or make this
   // repository public").
   // GraphQL gives its errors as a list, with HTTP 200.
   const errors = Array.isArray(body?.errors) ? body.errors.map((error) => error?.message).filter(Boolean).join(' ') : body?.errors;
   const reason = [body?.message, typeof errors === 'string' ? errors : null].filter(Boolean).join(': ');
-  const failed = { ok: false, status, ...(reason ? { reason } : {}) };
+  const failed = { ok: false, status, ...(reason ? { reason } : {}), ...(suffix === SOURCES[source] ? {} : { path: suffix }) };
   if (source === 'merge') return status === 200 && body?.data?.repository ? { ok: true, value: body.data.repository } : failed;
   if (source === 'alerts') return status === 204 ? { ok: true, value: true } : status === 404 ? { ok: true, value: false } : failed;
   return status === 200 ? { ok: true, value: body } : failed;
@@ -164,9 +226,10 @@ export const MERGE_QUERY = `query($owner: String!, $name: String!) {
 /** What to do about a setting that cannot be read. */
 const UNREADABLE = 'Give the token "Administration: read", or, if the plan does not offer the setting on this repository, add an exception with the reason.';
 
-/** Each source, read once. */
-export async function readState(get) {
-  const entries = await Promise.all(Object.keys(SOURCES).map(async (source) => [source, await read(get, source)]));
+/** Each source that a setting of the config needs, read once. */
+export async function readState(get, config = {}) {
+  const needed = new Set(Object.values(SETTINGS).filter((setting) => applies(setting, config)).map((setting) => setting.source));
+  const entries = await Promise.all([...needed].map(async (source) => [source, await read(get, source)]));
   return Object.fromEntries(entries);
 }
 
@@ -176,9 +239,13 @@ function configProblems(config, file) {
   if (config.requiredChecks !== undefined && (!Array.isArray(config.requiredChecks) || !config.requiredChecks.every((name) => typeof name === 'string'))) {
     out.push(`${file} requiredChecks must be a list of check names.`);
   }
+  if (config.tagRuleset !== undefined && (typeof config.tagRuleset !== 'string' || !config.tagRuleset.trim())) {
+    out.push(`${file} tagRuleset must be the pattern of the release tags, for example "v*".`);
+  }
   for (const [index, entry] of (config.exceptions ?? []).entries()) {
     if (!SETTINGS[entry?.setting]) out.push(`${file} exception ${index + 1} names \`${entry?.setting}\`, which is not a setting. The settings are ${Object.keys(SETTINGS).join(', ')}.`);
     else if (typeof entry.reason !== 'string' || !entry.reason.trim()) out.push(`${file} exception for \`${entry.setting}\` has no reason.`);
+    else if (!applies(SETTINGS[entry.setting], config)) out.push(`${file} excepts \`${entry.setting}\`, which this config does not check. Remove the exception.`);
   }
   return out;
 }
@@ -189,11 +256,13 @@ export function check(state, config = {}, { file = '.repo-settings.json' } = {})
   if (lines.length) return { lines, code: 1 };
   const excepted = new Map((config.exceptions ?? []).map((entry) => [entry.setting, entry.reason]));
   let correct = 0;
-  for (const [id, { source, test, fix }] of Object.entries(SETTINGS)) {
+  for (const [id, setting] of Object.entries(SETTINGS)) {
+    if (!applies(setting, config)) continue;
+    const { source, test, fix } = setting;
     const answer = state[source];
     let finding;
     if (!answer.ok) {
-      finding = `${id} could not be read: ${SOURCES[source] || '/'} answered HTTP ${answer.status}${answer.reason ? ` (${answer.reason})` : ''}. ${UNREADABLE}`;
+      finding = `${id} could not be read: ${answer.path ?? (SOURCES[source] || '/')} answered HTTP ${answer.status}${answer.reason ? ` (${answer.reason})` : ''}. ${UNREADABLE}`;
     } else {
       const verdict = test(answer.value, config);
       if (verdict === true) finding = null;
@@ -237,7 +306,7 @@ async function main() {
     return { status: response.status, body: response.status === 204 ? null : await response.json().catch(() => null) };
   };
   const config = existsSync(values.config) ? JSON.parse(readFileSync(values.config, 'utf8')) : {};
-  const { lines, code } = check(await readState(get), config, { file: values.config });
+  const { lines, code } = check(await readState(get, config), config, { file: values.config });
   for (const line of lines) console.log(line);
   return code;
 }

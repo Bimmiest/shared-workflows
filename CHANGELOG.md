@@ -30,6 +30,15 @@ says what a consumer gets when it bumps its pin.
   gives the floor to write. It also fails below the floor. The default slack
   is 1 point. A new action is a minor version.
 
+- **`tagRuleset` in the config of `repo-settings-check`**
+  ([#41](https://github.com/Bimmiest/shared-workflows/issues/41)). Set it
+  in `.repo-settings.json` to the pattern of the release tags, for example
+  `"v*"`. The check then fails when no active tag ruleset on that pattern
+  blocks updates and deletions, so a release tag cannot move with no
+  failure. It reads each tag ruleset by id, with the token that it has now.
+  Without the key, the check does not read the tag rulesets, and the
+  verdict does not change: this is a new optional input, a minor version.
+
 ### Changed
 
 - **The `dependabot-review` comment says what the review read**
