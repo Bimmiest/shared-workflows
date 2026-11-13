@@ -68,7 +68,8 @@ versions in one repository give two sets of rules.
 
 `dependabot-review-facts` and `dependabot-review` give each Dependabot pull
 request one comment with advice: what in the release notes can break the
-places that use each package. The comment is never a check result, and
+places that use each package. The review does not read the code of the
+packages, and the comment says so. The comment is never a check result, and
 nothing merges because of it. Use two jobs, so that the credential and the
 code of the pull request are never in one job:
 

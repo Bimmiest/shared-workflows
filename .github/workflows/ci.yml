@@ -189,6 +189,7 @@ jobs:
         run: |
           grep -q 'shared-workflows:dependabot-review' "$COMMENT"
           grep -q 'Verdict: merge' "$COMMENT"
+          grep -q 'It did not read the code of the packages.' "$COMMENT"
 
       # This repository's own run (in test) passes the default GitHub list.
       # The fixture proves that forge and stacks get to the script.

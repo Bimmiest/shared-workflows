@@ -32,6 +32,13 @@ says what a consumer gets when it bumps its pin.
 
 ### Changed
 
+- **The `dependabot-review` comment says what the review read**
+  ([#105](https://github.com/Bimmiest/shared-workflows/issues/105)). Under
+  the verdict, it says that the review read the release notes against the
+  places that name each package, and did not read the code of the packages.
+  The prompt also tells the model that it does not see that code, so that
+  its reasons do not claim more than the facts show. The verdicts do not
+  change.
 - **`dependabot-review`** sets up its own Node, from the `.nvmrc` of this
   repository ([#106](https://github.com/Bimmiest/shared-workflows/issues/106)).
   The `review` job holds the credential and has no checkout, and the example

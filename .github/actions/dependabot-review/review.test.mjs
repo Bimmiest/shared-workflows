@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, it, mock } from 'node:test';
-import { buildRequest, credential, federatedToken, isResult, MARKER, parseReply, renderComment, run, sanitize, SCHEMA, upsertComment } from './review.mjs';
+import { buildRequest, credential, federatedToken, isResult, MARKER, parseReply, renderComment, run, sanitize, SCHEMA, SCOPE, upsertComment } from './review.mjs';
 
 const realFetch = globalThis.fetch;
 afterEach(() => {
@@ -164,6 +164,10 @@ describe('renderComment', () => {
     );
     assert.ok(body.startsWith(MARKER));
     assert.match(body, /\*\*Verdict: merge\.\*\* This is advice/);
+    assert.ok(
+      body.includes('\n\nThis review read the release notes in the pull request against the places where this repository names each package. It did not read the code of the packages.\n\n- Fine.'),
+      'the scope of the review is under the verdict, before the reasons',
+    );
     assert.ok(body.includes('[`src/a.ts`](https://github.com/o/r/blob/f00d/src/a.ts)'));
     assert.ok(body.includes('(`src/b.ts`)'), 'a file the facts do not name gets no link');
     assert.match(body, /\| left\\-pad \| 1\.0\.0 \| 2\.0\.0 \| 1 usages \|/);
@@ -173,6 +177,7 @@ describe('renderComment', () => {
   it('says that the model declined, and still shows what the checks found', () => {
     const body = renderComment({ declined: true, model: 'm' }, { ...facts, nestedCopies: [{ path: 'node_modules/a/node_modules/b', nested: '1.0.0' }] });
     assert.match(body, /The model declined to review this update/);
+    assert.ok(!body.includes(SCOPE), 'a decline read nothing, so it states no scope');
     assert.ok(renderComment({ declined: true, model: 'm' }, { packages: [], nestedCopies: [] }).includes('No package changed at the top level.'));
     assert.match(body, /New nested copies: node\\_modules/);
   });
