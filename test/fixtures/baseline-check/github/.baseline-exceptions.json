@@ -1,0 +1,8 @@
+{
+  "exceptions": [
+    {
+      "file": ".claude/settings.json",
+      "reason": "Nobody runs Claude Code in this repository."
+    }
+  ]
+}

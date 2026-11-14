@@ -24,6 +24,12 @@ The unit tests prove the script. Only a real run proves the YAML around it. Push
 node ../shared-workflows/.github/actions/docs-check/docs-check.mjs
 ```
 
+## The Claude Code settings
+
+`.claude/settings.json` has deny rules only. They stop Claude Code before it makes, deletes or moves a tag, or force-pushes, because `release.yml` makes each tag ([CONTRIBUTING](../CONTRIBUTING.md#releases)). The file has no hooks: the hooks of repo-template run `scripts/check.mjs` and `npm run gates`, and this repository has neither ([ADR 0002](adr/0002-the-repository-follows-the-template-standard-without-a-toolchain.md)).
+
+A deny rule matches the text of the command, so it is a guard against mistakes, not against attacks. A ruleset protects the release tags. Review a change to `.claude/` as you review a workflow, because Claude Code reads it on the computer of each contributor.
+
 ## Repository layout
 
 ```
