@@ -9,6 +9,15 @@ says what a consumer gets when it bumps its pin.
 
 ### Added
 
+- **`security.yml` runs Semgrep, when asked**
+  ([#60](https://github.com/Bimmiest/shared-workflows/issues/60)). A new
+  input `semgrep` (default `false`) and an optional secret
+  `SEMGREP_APP_TOKEN`. The job runs `semgrep ci` in the `semgrep/semgrep`
+  image, pinned by digest, on the free plan of the Semgrep AppSec Platform.
+  On a pull request it reports only the findings that the pull request adds.
+  The job skips with a notice when the token is empty. With the default, no
+  consumer changes behaviour. The job needs Docker on the runner. A new
+  input with a default is a minor version.
 - **`mutation.yml`**, a new reusable workflow
   ([#37](https://github.com/Bimmiest/shared-workflows/issues/37)). It runs
   Stryker by the rules of repo-template ADR 0004. On a pull request, it

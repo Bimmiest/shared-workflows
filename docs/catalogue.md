@@ -14,7 +14,7 @@ A reusable workflow is a job. Call it under `jobs:` with `uses:`.
 
 | Workflow | What it checks | What the caller gives it |
 |---|---|---|
-| [`security.yml`](../.github/workflows/security.yml) | gitleaks scans the full history for secrets. Trivy scans the tree for vulnerabilities and misconfiguration, at CRITICAL and HIGH. Trivy ignores a vulnerability that has no fix, and reads `.trivyignore.yaml` if the file exists. | `permissions: contents: read, pull-requests: read`. A `schedule` of its own, because both checks can fail with no push. |
+| [`security.yml`](../.github/workflows/security.yml) | gitleaks scans the full history for secrets. Trivy scans the tree for vulnerabilities and misconfiguration, at CRITICAL and HIGH. Trivy ignores a vulnerability that has no fix, and reads `.trivyignore.yaml` if the file exists. With `semgrep: true`, Semgrep runs `semgrep ci` on the code, in a job container. On a pull request it reports only the findings that the pull request adds. Which rules fail the build is set in the Semgrep dashboard. The job skips with a notice when the token is empty. | `permissions: contents: read, pull-requests: read`. A `schedule` of its own, because both checks can fail with no push. For `semgrep`, the secret `SEMGREP_APP_TOKEN`; the input is `false` by default. Paths go in `.semgrepignore`. An accepted finding gets `# nosemgrep: <rule-id>` and the reason on the same line. |
 | [`workflow-lint.yml`](../.github/workflows/workflow-lint.yml) | actionlint and zizmor read the `.github/` directory of the caller. | A runner with Go and shellcheck. `ubuntu-latest` has both. |
 | [`mutation.yml`](../.github/workflows/mutation.yml) | Stryker mutates the code in the `mutate` list of the Stryker config. On a pull request, it mutates the files in the list that the pull request changes, and the files in the list that its changed tests import, and Stryker holds them to `thresholds.break`. On each other event, it mutates the full list, in `shards` jobs, and a last job holds the combined score to the floor. That job also fails when the score is more than `slack` points above the floor, and gives the floor to write. Each report is an artifact, also when the run fails. | `permissions: contents: read, actions: read`. A `schedule` and `pull_request`. A Stryker config with a `mutate` list of string literals and the `json` reporter. With `shards` above 1, a `break` that is `null` when `MUTATION_SHARD` is `1`. [consuming.md](consuming.md#run-the-mutation-workflow) has the detail. Do not make it a required check. |
 | [`scorecard.yml`](../.github/workflows/scorecard.yml) | OpenSSF Scorecard checks branch protection, token permissions, pinned dependencies, code review and the other Scorecard checks. It publishes the result for the badge, and uploads the findings to code scanning. It reports and does not fail. | `permissions: contents: read, actions: read, id-token: write, security-events: write`. A workflow of its own, on `push` to `main` and a weekly `schedule`, with no top-level `env`, `defaults` or write permission. A private repository sets `publish-results` and `upload-sarif` to `false`. |
@@ -22,12 +22,12 @@ A reusable workflow is a job. Call it under `jobs:` with `uses:`.
 `security.yml`, `workflow-lint.yml` and `mutation.yml` take `runs-on` as a
 JSON array, with the default `["ubuntu-latest"]`. Thus a caller can give the labels of a
 self-hosted runner. `scorecard.yml` does not: Scorecard publishes only from a
-runner that GitHub hosts. No workflow puts its jobs in a container. A repository on a
+runner that GitHub hosts. Only the `semgrep` job of `security.yml` runs in a container, the Semgrep image, and it needs Docker on the runner. A repository on a
 persistent runner that needs a job container keeps that job in its own
 workflow. The `ci.yml` of `propslab-ent` is an example.
 
 The check names are `<caller job> / <job>`. If the caller job is `security`,
-the checks are `security / gitleaks` and `security / trivy`.
+the checks are `security / gitleaks`, `security / trivy` and, when it is on, `security / semgrep`.
 
 ## Composite actions
 
