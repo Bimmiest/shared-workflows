@@ -1,2 +1,5 @@
 node_modules/
-.claude/
+# Agent worktrees and local session state. The shared Claude Code settings,
+# with their deny rules, are committed (#78).
+.claude/*
+!.claude/settings.json

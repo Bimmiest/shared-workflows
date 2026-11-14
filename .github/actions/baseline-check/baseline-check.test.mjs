@@ -47,8 +47,31 @@ describe('baseline', () => {
 
   it('has the same files on each forge, apart from the forge folder and the forge-only files', () => {
     const neutral = (list) => list.filter((f) => !/^\.(github|forgejo)\//.test(f));
-    const onlyGithub = ['CODE_OF_CONDUCT.md', 'LICENSE', '.repo-settings.json', '.git-blame-ignore-revs'];
+    const onlyGithub = ['CODE_OF_CONDUCT.md', 'LICENSE', '.repo-settings.json', '.git-blame-ignore-revs', '.claude/settings.json'];
     assert.deepEqual(neutral(CORE.github).filter((f) => !onlyGithub.includes(f)), neutral(CORE.forgejo).filter((f) => f !== 'renovate.json'));
+  });
+});
+
+describe('the Claude Code settings', () => {
+  it('are a core file on GitHub, and not yet on Forgejo', () => {
+    assert.ok(CORE.github.includes('.claude/settings.json'));
+    assert.ok(!CORE.forgejo.includes('.claude/settings.json'));
+  });
+
+  it('are missing in a repository with CLAUDE.md and no settings, and an exception with a reason excuses them', () => {
+    const files = GITHUB.filter((f) => f !== '.claude/settings.json');
+    assert.deepEqual(check(repo(files), []), {
+      lines: [
+        '::error::.claude/settings.json is missing. Take it from repo-template, or add { "file": ".claude/settings.json", "reason": "…" } to .baseline-exceptions.json.',
+      ],
+      code: 1,
+    });
+    assert.equal(check(repo(files), [{ file: '.claude/settings.json', reason: 'Nobody runs Claude Code here.' }]).code, 0);
+  });
+
+  it('do not bring the git hooks onto a list: a hook is a local help that CI repeats', () => {
+    const all = [...CORE.github, ...CORE.forgejo, ...DOCS, ...NODE];
+    assert.ok(!all.some((f) => f.startsWith('.githooks/')));
   });
 });
 

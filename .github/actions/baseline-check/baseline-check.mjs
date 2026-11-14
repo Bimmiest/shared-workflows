@@ -31,6 +31,7 @@ export const CORE = {
     'README.md',
     'CONTRIBUTING.md',
     'CLAUDE.md',
+    '.claude/settings.json',
     'SECURITY.md',
     'CODE_OF_CONDUCT.md',
     'CHANGELOG.md',
@@ -57,7 +58,9 @@ export const CORE = {
   ],
   // No LICENSE: the Forgejo repositories are private. Renovate replaces
   // Dependabot, and the forge settings are code in another repository, so
-  // there is no settings.yml or .repo-settings.json.
+  // there is no settings.yml or .repo-settings.json. No .claude/settings.json
+  // until pipelines/repo-template has one: a check that asks for a file must
+  // not send a repository to a template that does not have it (#78).
   forgejo: [
     'README.md',
     'CONTRIBUTING.md',
@@ -96,7 +99,12 @@ export const DOCS = [
   'docs/testing.md',
 ];
 
-/** The files of repo-template's Node toolchain, for a repository with a `package-lock.json`. */
+/**
+ * The files of repo-template's Node toolchain, for a repository with a
+ * `package-lock.json`. Not `.githooks/`: a git hook runs only where the
+ * `prepare` script set `core.hooksPath`, `--no-verify` skips it, and CI runs
+ * the same rules, so a missing hook only gives the verdict later (#78).
+ */
 export const NODE = [
   '.audit-exceptions.json',
   '.licence-allowlist.json',

@@ -75,6 +75,20 @@ says what a consumer gets when it bumps its pin.
   "Issues: read" too. The check must run in a checkout, as the
   `settings.yml` of repo-template does. This check fails on something that
   it passed before, so this is a major version.
+- **Breaking: `baseline-check` asks for `.claude/settings.json` on GitHub**
+  ([#78](https://github.com/Bimmiest/shared-workflows/issues/78)). The check
+  already asks for `CLAUDE.md`. repo-template now has the Claude Code
+  settings, whose hooks and deny rules enforce the rules of `CLAUDE.md`. A
+  repository with no `.claude/settings.json` now fails. Take the file from
+  repo-template. If nobody runs Claude Code in the repository, add
+  `{ "file": ".claude/settings.json", "reason": "…" }` to
+  `.baseline-exceptions.json`. If `.gitignore` ignores `.claude/`, ignore
+  `.claude/*` and keep `!.claude/settings.json`. The Forgejo list does not
+  change, because the Forgejo template does not have the file yet. The
+  check does not ask for `.githooks/`: a git hook runs only where the
+  `prepare` script of a Node repository set it, `--no-verify` skips it, and
+  CI runs the same rules. This check fails on something that it passed
+  before, so this is a major version.
 - **The `dependabot-review` comment says what the review read**
   ([#105](https://github.com/Bimmiest/shared-workflows/issues/105)). Under
   the verdict, it says that the review read the release notes against the
