@@ -211,6 +211,62 @@ jobs:
 - **Not a required check.** A required check makes each merge wait for the
   run, which is slow. The reviewer decides if a red run can merge.
 
+## Check a pin that Dependabot cannot read
+
+Dependabot does not read a version that a script or a config file pins.
+`upstream-release-check` compares that version with the releases of the
+upstream on GitHub. Add a job to `supply-chain.yml`, on the same schedule as
+`node-patch-check`. Add the file of the pin to the `paths` of its
+`pull_request` trigger. This example is the pin of PCRE2 in `build/build.sh`
+of `pcre2-wasm-utf16`, which has the line `PCRE2_VERSION=10.48`:
+
+```yaml
+  pcre2-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@<sha> # vX.Y.Z
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@<sha> # vX.Y.Z
+        with:
+          node-version-file: .nvmrc
+      - uses: Bimmiest/shared-workflows/.github/actions/upstream-release-check@<sha> # vX.Y.Z
+        with:
+          repository: PCRE2Project/pcre2
+          file: build/build.sh
+          pattern: '^PCRE2_VERSION=(.+)$'
+          tag-pattern: '^pcre2-(.+)$'
+          warn-only: ${{ github.event_name == 'pull_request' }}
+```
+
+- **Releases, not tags.** The check reads the releases API, because only a
+  release tells if it is a draft or a prerelease. The check skips drafts and
+  prereleases. An upstream can also tag a release candidate, for example
+  `pcre2-10.48-RC1`.
+- **The newest version, not the latest release.** The check reads the 100
+  newest releases, by creation date, and finds the highest version. It does
+  not use `/releases/latest`, because that release can be a backport on an
+  older line.
+- **The two patterns.** `pattern` must match exactly one line of the file,
+  and `^` and `$` match at each line. `tag-pattern` must match the tag. In
+  each pattern, capture group 1 is the version. The check skips a release
+  whose tag does not match `tag-pattern`.
+- **How versions compare.** A version is numbers with a dot between each two,
+  with an optional `v`. The check compares the numbers part by part. A
+  missing part is 0. Thus `10.48` is equal to `10.48.0`, and `10.100` is
+  newer than `10.99`.
+- **A version with other text.** The check skips a release whose version has
+  other text, for example `10.48-RC1`, and names it in the log. A pin with
+  other text fails.
+- **Failures.** The check fails when the request fails, and when no release
+  is left to compare. With `warn-only`, it only writes a warning.
+- **The token.** `GITHUB_TOKEN` can read the releases of a public upstream.
+  For a private upstream, give a `token` with "Contents: read" on it.
+- **The pin does not change.** The check only tells you about the release.
+  Read the release notes, change the version and its checksum, and run the
+  build again.
+
 ## Run the tests in a shuffled order
 
 `randomised-tests` finds a test that passes only after another test, or

@@ -214,6 +214,28 @@ jobs:
         with:
           working-directory: test/fixtures/node-version-check/library
 
+      # A pin against the real releases of this repository, with the default
+      # tag-pattern, so the step needs no other repository. The pin is 999.0,
+      # newer than each release, so the step passes whatever is released.
+      - name: upstream-release-check
+        uses: ./.github/actions/upstream-release-check # zizmor: ignore[self-repository]
+        with:
+          repository: Bimmiest/shared-workflows
+          file: build/build.sh
+          pattern: '^UPSTREAM_VERSION=(.+)$'
+          working-directory: test/fixtures/upstream-release-check/pass
+
+      # The fixture that must fail, so the step passes only when warn-only
+      # gets to the script.
+      - name: upstream-release-check, warn-only
+        uses: ./.github/actions/upstream-release-check # zizmor: ignore[self-repository]
+        with:
+          repository: Bimmiest/shared-workflows
+          file: build/build.sh
+          pattern: '^UPSTREAM_VERSION=(.+)$'
+          warn-only: true
+          working-directory: test/fixtures/upstream-release-check/fail
+
       # The action runs the caller's own Vitest, so its fixtures install one.
       - name: Install the Vitest of the randomised-tests fixtures
         run: npm ci --ignore-scripts --no-audit --no-fund
@@ -359,6 +381,17 @@ jobs:
           engines-major: 'yes'
           working-directory: test/fixtures/node-version-check/pass
 
+      # The pin is 1.0, older than the newest release of this repository.
+      - name: upstream-release-check (must fail)
+        id: upstream-release-check
+        continue-on-error: true
+        uses: ./.github/actions/upstream-release-check # zizmor: ignore[self-repository]
+        with:
+          repository: Bimmiest/shared-workflows
+          file: build/build.sh
+          pattern: '^UPSTREAM_VERSION=(.+)$'
+          working-directory: test/fixtures/upstream-release-check/fail
+
       # Seed 3 runs the second test of the fixture first, with Vitest 5.1.0
       # from the fixture's lockfile. Find a new seed if a bump of that Vitest
       # changes the shuffle.
@@ -403,11 +436,12 @@ jobs:
           NODE_VERSION_CHECK: ${{ steps.node-version-check.outcome }}
           NODE_VERSION_CHECK_ENGINES_MAJOR: ${{ steps.node-version-check-engines-major.outcome }}
           NODE_VERSION_CHECK_ENGINES_MAJOR_VALUE: ${{ steps.node-version-check-engines-major-value.outcome }}
+          UPSTREAM_RELEASE_CHECK: ${{ steps.upstream-release-check.outcome }}
           RANDOMISED_TESTS: ${{ steps.randomised-tests.outcome }}
           RANDOMISED_TESTS_SEED_VALUE: ${{ steps.randomised-tests-seed-value.outcome }}
         run: |
           status=0
-          for name in COVERAGE_RATCHET MUTATION_RATCHET AUDIT_CHECK LICENCE_CHECK LICENCE_CHECK_INCLUDE_DEV PACKAGE_CONTENTS_CHECK LINT_ALLOWLIST_CHECK LOCKFILE_NESTING_CHECK DEPENDABOT_REVIEW_FACTS DEPENDABOT_REVIEW DOCS_CHECK NODE_PATCH_CHECK BASELINE_CHECK NODE_VERSION_CHECK NODE_VERSION_CHECK_ENGINES_MAJOR NODE_VERSION_CHECK_ENGINES_MAJOR_VALUE RANDOMISED_TESTS RANDOMISED_TESTS_SEED_VALUE; do
+          for name in COVERAGE_RATCHET MUTATION_RATCHET AUDIT_CHECK LICENCE_CHECK LICENCE_CHECK_INCLUDE_DEV PACKAGE_CONTENTS_CHECK LINT_ALLOWLIST_CHECK LOCKFILE_NESTING_CHECK DEPENDABOT_REVIEW_FACTS DEPENDABOT_REVIEW DOCS_CHECK NODE_PATCH_CHECK BASELINE_CHECK NODE_VERSION_CHECK NODE_VERSION_CHECK_ENGINES_MAJOR NODE_VERSION_CHECK_ENGINES_MAJOR_VALUE RANDOMISED_TESTS RANDOMISED_TESTS_SEED_VALUE UPSTREAM_RELEASE_CHECK; do
             if [ "${!name}" != failure ]; then
               echo "::error::The fixture for ${name} that must fail ended in '${!name}'."
               status=1

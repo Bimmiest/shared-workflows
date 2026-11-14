@@ -39,6 +39,15 @@ says what a consumer gets when it bumps its pin.
   Without the key, the check does not read the tag rulesets, and the
   verdict does not change: this is a new optional input, a minor version.
 
+- **`upstream-release-check`**, a new action and command
+  ([#39](https://github.com/Bimmiest/shared-workflows/issues/39)). It fails
+  when a version that the repository pins in a file that Dependabot does not
+  read is older than the newest release of its upstream on GitHub, and names
+  the two versions. Give it the upstream, the file, a pattern for the pin
+  and a pattern for the tags. It reads the releases API with `GITHUB_TOKEN`,
+  skips drafts and prereleases, and compares versions as numbers with dots.
+  It does not change the pin. Use `warn-only` on a pull request. A new action
+  is a minor version.
 - **`randomised-tests`**, a new action
   ([#40](https://github.com/Bimmiest/shared-workflows/issues/40)). It does
   what the `run:` block of the `randomised` job in the `ci.yml` of
