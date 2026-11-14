@@ -39,6 +39,7 @@ the `PATH` of the runner, and they need Node 22 or later.
 |---|---|---|
 | [`setup-node-project`](../.github/actions/setup-node-project/action.yml) | Installs Node from `.nvmrc`, restores the npm cache, and runs `npm ci --ignore-scripts`. | `.nvmrc`, the lockfile |
 | [`playwright-browser`](../.github/actions/playwright-browser/action.yml) | Installs one Playwright browser, cached on the resolved Playwright version. It installs the system packages on each run. | `@playwright/test` |
+| [`randomised-tests`](../.github/actions/randomised-tests/action.yml) | Runs the tests in an order that a seed shuffles, with the `TZ` and `LANG` of its inputs. It writes the seed, and the command that runs the same order again, to the log and the job summary. It makes a seed, or takes one from `seed`. Run it after the install, in a job on a `schedule`. [consuming.md](consuming.md#run-the-tests-in-a-shuffled-order) has the job. | The Vitest of the caller |
 | [`coverage-ratchet`](../.github/actions/coverage-ratchet/action.yml) | Fails when a Vitest coverage floor is more than `slack` points below the measurement. The floors for each glob are included. It prints the block to write. | `vitest.config.ts`, `coverage/coverage-summary.json` |
 | [`mutation-ratchet`](../.github/actions/mutation-ratchet/action.yml) | Fails when the Stryker mutation score is more than `slack` points above `thresholds.break`, and gives the floor to write. It also fails below the floor. It counts the status of each mutant in the report, as Stryker does. It reads the config as text, and does not import it. | `reports/mutation/mutation.json`, `stryker.config.mjs` |
 | [`audit-check`](../.github/actions/audit-check/action.yml) | Runs `npm audit --omit=dev`, and fails at `high`. Each exception has a reason and an expiry. An exception that has expired, or that no advisory needs, fails. | `.audit-exceptions.json` |
@@ -63,6 +64,8 @@ the `PATH` of the runner, and they need Node 22 or later.
 | Action | Input | Default | Why a caller changes it |
 |---|---|---|---|
 | `setup-node-project` | `ignore-scripts` | `true` | A dependency needs its install script. Name the dependency in the workflow, with the reason. |
+| `randomised-tests` | `seed` | empty (a new seed) | A run failed. Give its seed, to run the same order again. |
+| `randomised-tests` | `command` | `npx vitest run` | The tests run from an npm script. End the command with `--`, for example `npm run test:unit --`. |
 | `coverage-ratchet` | `slack` | `1` | Not usually. A larger slack lets the floor fall behind the measurement. |
 | `mutation-ratchet`, `mutation.yml` | `slack` | `1` | Not usually. A larger slack lets the floor fall behind the score. |
 | `mutation.yml` | `shards` | `1` | A job of the full run gets near its `timeout-minutes`. Add one shard. Do not raise the limit. |

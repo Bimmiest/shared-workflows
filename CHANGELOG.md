@@ -48,6 +48,16 @@ says what a consumer gets when it bumps its pin.
   skips drafts and prereleases, and compares versions as numbers with dots.
   It does not change the pin. Use `warn-only` on a pull request. A new action
   is a minor version.
+- **`randomised-tests`**, a new action
+  ([#40](https://github.com/Bimmiest/shared-workflows/issues/40)). It does
+  what the `run:` block of the `randomised` job in the `ci.yml` of
+  repo-template does. It runs the tests in an order that a seed shuffles,
+  with the `TZ` and `LANG` of its inputs. It writes the seed and the command
+  that runs the same order again to the log and the job summary. The default
+  command is `npx vitest run`. It makes a seed, or takes one from `seed`,
+  and gives it as the `seed` output. `command` runs with no shell, so a seed
+  or a command cannot run as shell code. The job stays in the caller. A new
+  action is a minor version.
 
 ### Changed
 
