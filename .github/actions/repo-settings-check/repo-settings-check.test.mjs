@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
-import { SETTINGS, SOURCES, check, readState, tagRef } from './repo-settings-check.mjs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { after, describe, it } from 'node:test';
+import { FORMS, SETTINGS, SOURCES, check, formLabels, readForms, readState, tagRef, wantedLabels } from './repo-settings-check.mjs';
 
 const UNREADABLE = 'Give the token "Administration: read", or, if the plan does not offer the setting on this repository, add an exception with the reason.';
 
@@ -39,6 +42,7 @@ const good = () => ({
     ],
   },
   tags: { ok: true, value: [releaseTags()] },
+  labels: { ok: true, value: [{ name: 'bug' }, { name: 'no-issue' }, { name: 'Decision' }] },
 });
 
 /** A tag ruleset as GET /rulesets/{id} gives it, which blocks each change to the tags of `v*`. */
@@ -52,12 +56,14 @@ const releaseTags = (changes = {}) => ({
   ...changes,
 });
 
-/** The number of settings that apply when the config does not set tagRuleset. */
-const withoutTags = Object.keys(SETTINGS).filter((id) => !id.startsWith('tags.')).length;
+/** The number of settings that apply when the config sets no tagRuleset and no form or config names a label. */
+const withoutTags = Object.keys(SETTINGS).filter((id) => !id.startsWith('tags.') && !id.startsWith('labels.')).length;
+
+const UNLABELLED = 'Create the label (repo-template docs/repository-settings.md has the commands), or remove it from the file.';
 
 describe('check', () => {
   it('passes a repository that matches the template', () => {
-    const { code, lines } = check(good(), { requiredChecks: ['verify', 'audit'], tagRuleset: 'v*' });
+    const { code, lines } = check(good(), { requiredChecks: ['verify', 'audit'], tagRuleset: 'v*', labels: ['no-issue'] });
     assert.equal(code, 0, lines.join('\n'));
     assert.deepEqual(lines, [`${Object.keys(SETTINGS).length} settings match the template.`]);
   });
@@ -66,6 +72,45 @@ describe('check', () => {
     const state = good();
     delete state.tags;
     assert.deepEqual(check(state).lines, [`${withoutTags} settings match the template.`]);
+  });
+
+  it('names each missing label, and each file that asks for it', () => {
+    const forms = { [`${FORMS}/bug.yml`]: ['bug'], [`${FORMS}/tech-debt.yml`]: ['tech-debt'], [`${FORMS}/question.yml`]: ['question', 'no-changelog'] };
+    const { code, lines } = check(good(), { labels: ['no-issue', 'no-changelog'] }, { forms });
+    assert.equal(code, 1);
+    assert.deepEqual(lines, [
+      `::error::labels.exist is wrong. The label \`tech-debt\` does not exist, and ${FORMS}/tech-debt.yml asks for it. ${UNLABELLED}`,
+      `::error::labels.exist is wrong. The label \`question\` does not exist, and ${FORMS}/question.yml asks for it. ${UNLABELLED}`,
+      `::error::labels.exist is wrong. The label \`no-changelog\` does not exist, and ${FORMS}/question.yml and .repo-settings.json ask for it. ${UNLABELLED}`,
+    ]);
+  });
+
+  it('finds a label without regard to case, as GitHub does', () => {
+    const { code, lines } = check(good(), { labels: ['decision', 'NO-ISSUE'] }, { forms: { [`${FORMS}/bug.yml`]: ['Bug'] } });
+    assert.equal(code, 0, lines.join('\n'));
+    assert.deepEqual(lines, [`${withoutTags + 1} settings match the template.`]);
+  });
+
+  it('fails when the labels cannot be read, and names the permission', () => {
+    const state = { ...good(), labels: { ok: false, status: 404, reason: 'Not Found' } };
+    assert.deepEqual(check(state, { labels: ['no-issue'] }).lines, [
+      '::error::labels.exist could not be read: /labels?per_page=100 answered HTTP 404 (Not Found). Give the token "Issues: read", which the labels of a private repository need.',
+    ]);
+  });
+
+  it('refuses a labels key that is not a list of names, and a form whose labels it cannot read', () => {
+    for (const labels of ['no-issue', [''], [1], {}]) {
+      assert.deepEqual(check(good(), { labels }).lines, ['::error::.repo-settings.json labels must be a list of label names.'], JSON.stringify(labels));
+    }
+    assert.deepEqual(check(good(), {}, { forms: { [`${FORMS}/bug.yml`]: null } }).lines, [
+      `::error::${FORMS}/bug.yml labels could not be read. Write them as a list on one line, for example \`labels: [bug]\`.`,
+    ]);
+  });
+
+  it('refuses an exception for the labels when nothing asks for a label', () => {
+    assert.deepEqual(check(good(), { exceptions: [{ setting: 'labels.exist', reason: 'No labels.' }] }, { forms: { [`${FORMS}/blank.yml`]: [] } }).lines, [
+      '::error::.repo-settings.json excepts `labels.exist`, which this config does not check. Remove the exception.',
+    ]);
   });
 
   it('names each wrong setting and what to change', () => {
@@ -207,7 +252,13 @@ describe('readState', () => {
       if (suffix === SOURCES.merge) return { status: 200, body: { data: { repository: { deleteBranchOnMerge: true } } } };
       return suffix === SOURCES.alerts ? { status: 204, body: null } : { status: 200, body: { suffix } };
     });
-    assert.deepEqual(asked.sort(), Object.values(SOURCES).filter((suffix) => suffix !== SOURCES.tags).sort(), 'no tag rulesets without tagRuleset');
+    assert.deepEqual(
+      asked.sort(),
+      Object.values(SOURCES)
+        .filter((suffix) => suffix !== SOURCES.tags && suffix !== SOURCES.labels)
+        .sort(),
+      'no tag rulesets without tagRuleset, and no labels when nothing asks for one',
+    );
     assert.deepEqual(state.merge, { ok: true, value: { deleteBranchOnMerge: true } });
     assert.deepEqual(state.alerts, { ok: true, value: true });
     assert.deepEqual(state.rules, { ok: true, value: { suffix: '/rules/branches/main' } });
@@ -257,5 +308,90 @@ describe('readState', () => {
     assert.deepEqual((await readState(answering({ [SOURCES.merge]: missing }))).merge, { ok: false, status: 200, reason: "Could not resolve to a Repository with the name 'o/r'." });
     const refused = { status: 401, body: { message: 'Bad credentials' } };
     assert.deepEqual((await readState(answering({ [SOURCES.merge]: refused }))).merge, { ok: false, status: 401, reason: 'Bad credentials' });
+  });
+});
+
+describe('the labels', () => {
+  const names = (from, count) => Array.from({ length: count }, (_, index) => ({ name: `label-${from + index}` }));
+
+  it('reads each page of 100, until a page that is not full', async () => {
+    const pages = { [SOURCES.labels]: names(0, 100), [`${SOURCES.labels}&page=2`]: names(100, 100), [`${SOURCES.labels}&page=3`]: names(200, 3) };
+    const asked = [];
+    const state = await readState(
+      async (suffix) => {
+        asked.push(suffix);
+        return pages[suffix] ? { status: 200, body: pages[suffix] } : { status: 200, body: {} };
+      },
+      { labels: ['label-202'] },
+    );
+    assert.equal(state.labels.value.length, 203);
+    assert.deepEqual(
+      asked.filter((suffix) => suffix.startsWith('/labels')),
+      [SOURCES.labels, `${SOURCES.labels}&page=2`, `${SOURCES.labels}&page=3`],
+    );
+    assert.equal(check({ ...good(), labels: state.labels }, { labels: ['label-202'] }).code, 0);
+  });
+
+  it('stops at an empty page, and names the page that it cannot read', async () => {
+    const full = async (suffix) => (suffix === SOURCES.labels ? { status: 200, body: names(0, 100) } : { status: 200, body: [] });
+    assert.equal((await readState(full, { labels: ['x'] })).labels.value.length, 100);
+    const refused = async (suffix) => (suffix === SOURCES.labels ? { status: 200, body: names(0, 100) } : { status: 502, body: { message: 'Bad Gateway' } });
+    assert.deepEqual((await readState(refused, { labels: ['x'] })).labels, { ok: false, status: 502, reason: 'Bad Gateway', path: `${SOURCES.labels}&page=2` });
+  });
+
+  it('reads the labels when only a form names one', async () => {
+    const asked = [];
+    await readState(
+      async (suffix) => {
+        asked.push(suffix);
+        return { status: 200, body: [] };
+      },
+      {},
+      { forms: { [`${FORMS}/bug.yml`]: ['bug'] } },
+    );
+    assert.ok(asked.includes(SOURCES.labels));
+  });
+
+  it('merges the forms and the config into one entry for each label', () => {
+    assert.deepEqual(wantedLabels({ labels: ['no-issue', 'Bug', 3] }, { 'a.yml': ['bug'], 'b.yml': ['bug', 'bug'], 'c.yml': null }, 'x.json'), [
+      { name: 'bug', files: ['a.yml', 'b.yml', 'x.json'] },
+      { name: 'no-issue', files: ['x.json'] },
+    ]);
+  });
+});
+
+describe('formLabels', () => {
+  it('reads a flow list, a string with commas, and a block list, with quotes and comments', () => {
+    assert.deepEqual(formLabels('name: Bug\nlabels: [bug, "needs triage"] # why\nbody:\n'), ['bug', 'needs triage']);
+    assert.deepEqual(formLabels("labels: 'bug, triage'\n"), ['bug', 'triage']);
+    assert.deepEqual(formLabels('labels: bug\n'), ['bug']);
+    assert.deepEqual(formLabels('labels:\n  - bug\n\n  # a comment\n  - "tech-debt" # why\nbody:\n  - type: textarea\n'), ['bug', 'tech-debt']);
+    assert.deepEqual(formLabels('labels:\r\n- bug\r\nbody:\r\n'), ['bug']);
+    assert.deepEqual(formLabels('labels: []\n'), []);
+  });
+
+  it('gives no labels for a form with no top-level labels key', () => {
+    assert.deepEqual(formLabels('name: Bug\nbody:\n  - type: input\n    labels: [not, this]\n'), []);
+  });
+
+  it('gives null for a form that it cannot read, so the check fails and does not pass with no labels', () => {
+    assert.equal(formLabels('labels: [bug,\n  triage]\n'), null);
+    assert.equal(formLabels('labels: >\n  bug\n'), null);
+    assert.equal(formLabels('labels: *common\n'), null);
+  });
+});
+
+describe('readForms', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'repo-settings-forms-'));
+  after(() => rmSync(root, { recursive: true, force: true }));
+
+  it('reads each form in the forms directory, and not config.yml or a Markdown template', () => {
+    assert.deepEqual(readForms(root), {}, 'no forms directory');
+    mkdirSync(path.join(root, FORMS), { recursive: true });
+    writeFileSync(path.join(root, FORMS, 'tech-debt.yml'), 'labels: [tech-debt]\n');
+    writeFileSync(path.join(root, FORMS, 'bug.yaml'), 'labels:\n  - bug\n');
+    writeFileSync(path.join(root, FORMS, 'config.yml'), 'blank_issues_enabled: false\n');
+    writeFileSync(path.join(root, FORMS, 'old.md'), '---\nlabels: old\n---\n');
+    assert.deepEqual(readForms(root), { [`${FORMS}/bug.yaml`]: ['bug'], [`${FORMS}/tech-debt.yml`]: ['tech-debt'] });
   });
 });

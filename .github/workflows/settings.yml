@@ -6,7 +6,9 @@ name: Settings
 #
 # SETTINGS_READ_TOKEN is a fine-grained token with "Administration: read" on
 # this repository. GITHUB_TOKEN cannot read most of these settings. Without
-# the secret, the check fails, and the issue below says so.
+# the secret, the check fails, and the issue below says so. The check also
+# lists the labels with that token. This repository is public, so the token
+# needs no "Issues: read" for them.
 on:
   schedule:
     - cron: '23 6 * * 1'

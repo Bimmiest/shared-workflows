@@ -58,7 +58,9 @@ versions in one repository give two sets of rules.
   checks need only `contents: read`.
 - **A token for the settings check.** `repo-settings-check` needs a
   fine-grained token with "Administration: read" on the repository, as a
-  secret. One token can cover each repository of an owner.
+  secret. To list the labels of a private repository, the token also needs
+  "Issues: read". The job permissions do not change, because the check does
+  not use `GITHUB_TOKEN`. One token can cover each repository of an owner.
 - **A schedule.** Security, supply-chain and settings checks can fail with no
   push. Run them each week, or each month for `node-patch-check`.
 - **The files that a check reads.** [catalogue.md](catalogue.md) names them.

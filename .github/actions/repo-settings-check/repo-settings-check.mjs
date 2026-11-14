@@ -9,7 +9,8 @@
  *
  * The token is `GH_TOKEN`. Most of these endpoints answer only a token with
  * "Administration: read", which no GITHUB_TOKEN can hold, so the caller
- * passes a fine-grained token. A setting that the token cannot read fails:
+ * passes a fine-grained token. The labels of a private repository also need
+ * "Issues: read" on that token. A setting that the token cannot read fails:
  * a check that cannot see the answer has verified nothing.
  *
  * The merge settings come from GraphQL. GET /repos gives them only to a
@@ -19,16 +20,21 @@
  *
  *   { "requiredChecks": ["verify", "audit"],
  *     "tagRuleset": "v*",
+ *     "labels": ["no-issue", "no-changelog"],
  *     "exceptions": [ { "setting": "main.pull-request", "reason": "…" } ] }
  *
  * `requiredChecks` are the names that the `main` ruleset must require.
  * `tagRuleset` is the pattern of the release tags. Only a repository that
  * sets it gets the `tags.*` settings, because a tag ruleset is a choice of
- * the repository, not of the template (#41). An exception names a setting
- * from SETTINGS, with the reason. An exception for a setting that is correct
- * fails, so the file cannot rot.
+ * the repository, not of the template (#41). `labels` are the labels that
+ * the process uses and that no issue form names. Each of them, and each
+ * label in the `labels:` of an issue form in `.github/ISSUE_TEMPLATE/`, must
+ * exist: a form files its issue without a missing label and says nothing,
+ * and nobody can give a pull request an exemption label that is not there
+ * (#72). An exception names a setting from SETTINGS, with the reason. An
+ * exception for a setting that is correct fails, so the file cannot rot.
  */
-import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
@@ -46,7 +52,65 @@ export const SOURCES = {
   // shortcut: reads the first 100 rulesets only. Follow the Link header when
   // a repository gets near 100 rulesets.
   tags: '/rulesets?targets=tag&per_page=100',
+  labels: '/labels?per_page=100',
 };
+
+/** The directory of the issue forms, relative to the working directory. */
+export const FORMS = '.github/ISSUE_TEMPLATE';
+
+/** A YAML scalar without its quotes. */
+const unquote = (text) => text.trim().replace(/^(["'])(.*)\1$/, '$2').trim();
+
+/**
+ * The `labels:` of one issue form, or null when this reader cannot read
+ * them. GitHub takes a list or a string with commas. This is not a YAML
+ * parser, because a script has no dependencies (ADR 0002): it reads the
+ * flow list, the block list and the string, on the top-level key only. Each
+ * other form fails, rather than giving no labels and a pass.
+ */
+export function formLabels(text) {
+  const lines = text.split(/\r?\n/);
+  const at = lines.findIndex((line) => /^labels\s*:/.test(line));
+  if (at === -1) return [];
+  const value = lines[at].replace(/^labels\s*:/, '').replace(/\s+#.*$/, '').trim();
+  const names = (items) => items.map(unquote).filter(Boolean);
+  if (value.startsWith('[')) return value.endsWith(']') ? names(value.slice(1, -1).split(',')) : null;
+  if (/^[|>&*!]/.test(value)) return null;
+  if (value) return names(unquote(value).split(','));
+  const items = [];
+  for (const line of lines.slice(at + 1)) {
+    if (!line.trim() || /^\s*#/.test(line)) continue;
+    const item = line.match(/^\s*-\s+(.*?)(\s+#.*)?$/);
+    if (!item) break;
+    items.push(item[1]);
+  }
+  return names(items);
+}
+
+/** The labels of each issue form under `root`, by the path of the form. */
+export function readForms(root = '.') {
+  const dir = path.join(root, FORMS);
+  if (!existsSync(dir)) return {};
+  const files = readdirSync(dir).filter((name) => /\.ya?ml$/.test(name) && name !== 'config.yml' && name !== 'config.yaml').sort();
+  return Object.fromEntries(files.map((name) => [`${FORMS}/${name}`, formLabels(readFileSync(path.join(dir, name), 'utf8'))]));
+}
+
+/**
+ * Each label that the config and the forms ask for, with the files that ask.
+ * GitHub holds label names unique without regard to case, so the names are
+ * compared that way too.
+ */
+export function wantedLabels(config = {}, forms = {}, file = '.repo-settings.json') {
+  const wanted = new Map();
+  const add = (name, from) => {
+    const key = name.toLowerCase();
+    if (!wanted.has(key)) wanted.set(key, { name, files: [] });
+    if (!wanted.get(key).files.includes(from)) wanted.get(key).files.push(from);
+  };
+  for (const [form, labels] of Object.entries(forms)) for (const name of labels ?? []) add(name, form);
+  for (const name of Array.isArray(config.labels) ? config.labels : []) if (typeof name === 'string') add(name, file);
+  return [...wanted.values()];
+}
 
 /** The ref that the rulesets API gives for a tag pattern: `v*` is `refs/tags/v*`. */
 export const tagRef = (pattern) => (pattern.startsWith('refs/tags/') ? pattern : `refs/tags/${pattern}`);
@@ -181,14 +245,29 @@ export const SETTINGS = {
     test: blocksTags('deletion', 'deletions'),
     fix: 'Restrict deletions in an active tag ruleset that targets the `tagRuleset` pattern with no exclusion, in Settings, Rules.',
   },
+  'labels.exist': {
+    source: 'labels',
+    when: (config, context) => context.labels.length > 0,
+    test: (labels, config, context) => {
+      const names = new Set((Array.isArray(labels) ? labels : []).map((label) => String(label?.name).toLowerCase()));
+      const missing = context.labels.filter((label) => !names.has(label.name.toLowerCase()));
+      return missing.length ? missing.map((label) => `The label \`${label.name}\` does not exist, and ${label.files.join(' and ')} ${label.files.length > 1 ? 'ask' : 'asks'} for it.`) : true;
+    },
+    fix: 'Create the label (repo-template docs/repository-settings.md has the commands), or remove it from the file.',
+    unreadable: 'Give the token "Issues: read", which the labels of a private repository need.',
+  },
 };
 
 /** Whether the config asks for a setting. */
-const applies = (setting, config) => !setting.when || setting.when(config);
+const applies = (setting, config, context) => !setting.when || setting.when(config, context);
+
+/** What the settings need besides the config: the labels that the config and the forms ask for. */
+const contextOf = (config, forms, file) => ({ labels: wantedLabels(config, forms, file) });
 
 /** The answer of one endpoint, read through `get(path)`, which resolves to `{ status, body }`. */
 async function read(get, source) {
   const answer = await readPath(get, source, SOURCES[source]);
+  if (source === 'labels' && answer.ok) return readPages(get, source, answer.value);
   if (source !== 'tags' || !answer.ok) return answer;
   // The list gives no conditions and no rules. GET by id gives both.
   const rulesets = [];
@@ -199,6 +278,22 @@ async function read(get, source) {
     rulesets.push(one.value);
   }
   return { ok: true, value: rulesets };
+}
+
+/**
+ * Each page of a list of 100 that starts with `first`. The API gives the next
+ * page in a Link header, and `get` gives no headers, so a page that is not
+ * full is the last one.
+ */
+async function readPages(get, source, first) {
+  const items = Array.isArray(first) ? [...first] : [];
+  for (let page = 2, last = items.length; last === 100; page += 1) {
+    const next = await readPath(get, source, `${SOURCES[source]}&page=${page}`);
+    if (!next.ok) return next;
+    last = Array.isArray(next.value) ? next.value.length : 0;
+    if (last) items.push(...next.value);
+  }
+  return { ok: true, value: items };
 }
 
 /** The answer of one path of a source. A failure that is not at the path of the source names its own path. */
@@ -226,16 +321,23 @@ export const MERGE_QUERY = `query($owner: String!, $name: String!) {
 /** What to do about a setting that cannot be read. */
 const UNREADABLE = 'Give the token "Administration: read", or, if the plan does not offer the setting on this repository, add an exception with the reason.';
 
-/** Each source that a setting of the config needs, read once. */
-export async function readState(get, config = {}) {
-  const needed = new Set(Object.values(SETTINGS).filter((setting) => applies(setting, config)).map((setting) => setting.source));
+/** Each source that a setting of the config and the forms needs, read once. */
+export async function readState(get, config = {}, { forms = {} } = {}) {
+  const context = contextOf(config, forms);
+  const needed = new Set(Object.values(SETTINGS).filter((setting) => applies(setting, config, context)).map((setting) => setting.source));
   const entries = await Promise.all([...needed].map(async (source) => [source, await read(get, source)]));
   return Object.fromEntries(entries);
 }
 
-/** What the config is wrong about, as sentences. */
-function configProblems(config, file) {
+/** What the config and the forms are wrong about, as sentences. */
+function configProblems(config, file, forms, context) {
   const out = [];
+  for (const [form, labels] of Object.entries(forms)) {
+    if (labels === null) out.push(`${form} labels could not be read. Write them as a list on one line, for example \`labels: [bug]\`.`);
+  }
+  if (config.labels !== undefined && (!Array.isArray(config.labels) || !config.labels.every((name) => typeof name === 'string' && name.trim()))) {
+    out.push(`${file} labels must be a list of label names.`);
+  }
   if (config.requiredChecks !== undefined && (!Array.isArray(config.requiredChecks) || !config.requiredChecks.every((name) => typeof name === 'string'))) {
     out.push(`${file} requiredChecks must be a list of check names.`);
   }
@@ -245,34 +347,36 @@ function configProblems(config, file) {
   for (const [index, entry] of (config.exceptions ?? []).entries()) {
     if (!SETTINGS[entry?.setting]) out.push(`${file} exception ${index + 1} names \`${entry?.setting}\`, which is not a setting. The settings are ${Object.keys(SETTINGS).join(', ')}.`);
     else if (typeof entry.reason !== 'string' || !entry.reason.trim()) out.push(`${file} exception for \`${entry.setting}\` has no reason.`);
-    else if (!applies(SETTINGS[entry.setting], config)) out.push(`${file} excepts \`${entry.setting}\`, which this config does not check. Remove the exception.`);
+    else if (!applies(SETTINGS[entry.setting], config, context)) out.push(`${file} excepts \`${entry.setting}\`, which this config does not check. Remove the exception.`);
   }
   return out;
 }
 
 /** The verdict on one state against the config, as lines and an exit code. */
-export function check(state, config = {}, { file = '.repo-settings.json' } = {}) {
-  const lines = configProblems(config, file).map((problem) => `::error::${problem}`);
+export function check(state, config = {}, { file = '.repo-settings.json', forms = {} } = {}) {
+  const context = contextOf(config, forms, file);
+  const lines = configProblems(config, file, forms, context).map((problem) => `::error::${problem}`);
   if (lines.length) return { lines, code: 1 };
   const excepted = new Map((config.exceptions ?? []).map((entry) => [entry.setting, entry.reason]));
   let correct = 0;
   for (const [id, setting] of Object.entries(SETTINGS)) {
-    if (!applies(setting, config)) continue;
-    const { source, test, fix } = setting;
+    if (!applies(setting, config, context)) continue;
+    const { source, test, fix, unreadable = UNREADABLE } = setting;
     const answer = state[source];
-    let finding;
+    let findings;
     if (!answer.ok) {
-      finding = `${id} could not be read: ${answer.path ?? (SOURCES[source] || '/')} answered HTTP ${answer.status}${answer.reason ? ` (${answer.reason})` : ''}. ${UNREADABLE}`;
+      findings = [`${id} could not be read: ${answer.path ?? (SOURCES[source] || '/')} answered HTTP ${answer.status}${answer.reason ? ` (${answer.reason})` : ''}. ${unreadable}`];
     } else {
-      const verdict = test(answer.value, config);
-      if (verdict === true) finding = null;
-      else if (verdict === undefined) finding = `${id} could not be read: the answer has no value for it. ${UNREADABLE}`;
-      else finding = `${id} is wrong. ${typeof verdict === 'string' ? `${verdict} ` : ''}${fix}`;
+      const verdict = test(answer.value, config, context);
+      if (verdict === true) findings = [];
+      else if (verdict === undefined) findings = [`${id} could not be read: the answer has no value for it. ${unreadable}`];
+      // A list is one finding for each item, so that each missing label has its own line.
+      else findings = (Array.isArray(verdict) ? verdict : [verdict]).map((detail) => `${id} is wrong. ${typeof detail === 'string' ? `${detail} ` : ''}${fix}`);
     }
     if (excepted.has(id)) {
-      if (finding === null) lines.push(`::error::${file} excepts \`${id}\`, which is correct now. Remove the exception.`);
-    } else if (finding === null) correct += 1;
-    else lines.push(`::error::${finding}`);
+      if (!findings.length) lines.push(`::error::${file} excepts \`${id}\`, which is correct now. Remove the exception.`);
+    } else if (!findings.length) correct += 1;
+    else lines.push(...findings.map((finding) => `::error::${finding}`));
   }
   if (lines.length) return { lines, code: 1 };
   return { lines: [`${correct} settings match the template${excepted.size ? `, and ${excepted.size} are excepted in ${file}` : ''}.`], code: 0 };
@@ -306,7 +410,8 @@ async function main() {
     return { status: response.status, body: response.status === 204 ? null : await response.json().catch(() => null) };
   };
   const config = existsSync(values.config) ? JSON.parse(readFileSync(values.config, 'utf8')) : {};
-  const { lines, code } = check(await readState(get, config), config, { file: values.config });
+  const forms = readForms();
+  const { lines, code } = check(await readState(get, config, { forms }), config, { file: values.config, forms });
   for (const line of lines) console.log(line);
   return code;
 }

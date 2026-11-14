@@ -5,22 +5,25 @@ description: >-
   Actions permissions and SHA pinning, fork approval, private vulnerability
   reporting, Dependabot alerts, secret scanning and push protection, and the
   ruleset on main. With `tagRuleset` in the config, also an active tag
-  ruleset that blocks updates and deletions of the release tags. A setting
-  that the token cannot read fails. Needs Node on the PATH and no install.
+  ruleset that blocks updates and deletions of the release tags. Each label
+  that an issue form in .github/ISSUE_TEMPLATE/ or `labels` in the config
+  names must exist. A setting that the token cannot read fails. Needs Node
+  on the PATH and no install.
 inputs:
   token:
     description: >-
-      A fine-grained token with "Administration: read" on the repository.
+      A fine-grained token with "Administration: read" on the repository,
+      and "Issues: read" when the repository is private, for its labels.
       GITHUB_TOKEN cannot read most of these settings, so pass a secret.
     required: true
   config:
-    description: Optional JSON with `requiredChecks` (the check names that the main ruleset must require), `tagRuleset` (the pattern of the release tags, for example `v*`, which an active tag ruleset must protect) and `exceptions` (`{ setting, reason }`).
+    description: Optional JSON with `requiredChecks` (the check names that the main ruleset must require), `tagRuleset` (the pattern of the release tags, for example `v*`, which an active tag ruleset must protect), `labels` (the labels that must exist and that no issue form names, for example `no-issue`) and `exceptions` (`{ setting, reason }`).
     default: .repo-settings.json
   repository:
     description: The repository to check, as owner/name.
     default: ${{ github.repository }}
   working-directory:
-    description: The directory that holds the config.
+    description: The directory that holds the config and .github/ISSUE_TEMPLATE/.
     default: .
 runs:
   using: composite
