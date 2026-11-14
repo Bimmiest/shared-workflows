@@ -1,7 +1,8 @@
 name: Security
 
-# Reusable: secrets in the history (gitleaks) and vulnerabilities and
-# misconfiguration in the tree (trivy). Call it from a workflow of its own
+# Reusable: secrets in the history (gitleaks), vulnerabilities and
+# misconfiguration in the tree (trivy), and, when asked, static analysis of the
+# code (semgrep, #60). Call it from a workflow of its own
 # rather than from CI, for the same reason a browser job is separate from a
 # verify job: a red run here against a green one there says immediately which
 # kind of thing broke, and neither waits on the other to fail fast.
@@ -56,7 +57,18 @@ on:
           beside each entry. Skipped when the file does not exist.
         type: string
         default: .trivyignore.yaml
+      semgrep:
+        description: >-
+          Run Semgrep on the code of the caller, on the free plan of the
+          Semgrep AppSec Platform. Off by default: it needs the secret
+          `SEMGREP_APP_TOKEN`, and a caller that turns it on takes a new
+          check that can fail.
+        type: boolean
+        default: false
     secrets:
+      SEMGREP_APP_TOKEN:
+        description: The Semgrep AppSec Platform token. When it is empty, the semgrep job skips with a notice.
+        required: false
       GITLEAKS_LICENSE:
         description: Required by gitleaks-action for organisation-owned repositories only.
         required: false
@@ -168,3 +180,46 @@ jobs:
           ignore-unfixed: ${{ inputs.trivy-ignore-unfixed }}
           exit-code: 1
           trivyignores: ${{ steps.ignores.outputs.file }}
+
+  # Opt-in (#60). `semgrep ci` reports to the Semgrep AppSec Platform: which
+  # rules fail the build is set in its dashboard, not here. On a pull request it
+  # reports only the findings that the pull request adds; on `push` and
+  # `schedule` it scans the whole tree. A caller excludes paths in its
+  # `.semgrepignore`, and accepts a finding with `# nosemgrep: <rule-id>` and
+  # the reason on the same line.
+  semgrep:
+    if: inputs.semgrep
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
+    timeout-minutes: 15
+    container:
+      # The tag is for the reader; the digest is what is pulled.
+      image: semgrep/semgrep:1.184.0@sha256:cc1b68266f267878b39739373ea9985b9a78e5d64497dd875c8de100b22695ed
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # See the gitleaks job: git refuses a checkout owned by another user.
+      - name: Let git read a checkout owned by another user
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      # Dependabot and fork pull requests get no repository secrets, and would
+      # fail on a missing token. A step cannot test a secret in `if:`, so the
+      # token goes through `env:` and the next step reads the output.
+      - name: Check for the token
+        id: token
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        run: |
+          if [ -n "$SEMGREP_APP_TOKEN" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::SEMGREP_APP_TOKEN is empty (a Dependabot or fork pull request, or no secret in the caller); skipping Semgrep."
+          fi
+
+      - name: Scan the code with Semgrep
+        if: steps.token.outputs.present == 'true'
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        run: semgrep ci
