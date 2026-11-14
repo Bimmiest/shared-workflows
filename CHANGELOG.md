@@ -61,6 +61,20 @@ says what a consumer gets when it bumps its pin.
 
 ### Changed
 
+- **Breaking: `repo-settings-check` fails when a label that the repository
+  uses does not exist** ([#72](https://github.com/Bimmiest/shared-workflows/issues/72)).
+  A missing label makes no error: an issue form files its issue without it,
+  and nobody can give a pull request `no-issue` or `no-changelog`. The check
+  reads the `labels:` of each issue form in `.github/ISSUE_TEMPLATE/`, and a
+  new `labels` list in `.repo-settings.json` for the labels that no form
+  names, for example `["no-issue", "no-changelog"]`. It lists the labels of
+  the repository, each page, and fails for each one that is not there, with
+  the file that asks for it. It compares the names only, without regard to
+  case. Create each label that it names, with the commands in repo-template
+  `docs/repository-settings.md`. On a private repository, give the token
+  "Issues: read" too. The check must run in a checkout, as the
+  `settings.yml` of repo-template does. This check fails on something that
+  it passed before, so this is a major version.
 - **Breaking: `baseline-check` asks for `.claude/settings.json` on GitHub**
   ([#78](https://github.com/Bimmiest/shared-workflows/issues/78)). The check
   already asks for `CLAUDE.md`. repo-template now has the Claude Code
