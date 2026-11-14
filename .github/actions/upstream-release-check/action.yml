@@ -1,0 +1,63 @@
+name: Upstream release check
+description: >-
+  A version that the repository pins in a file of its own is the newest
+  release of its upstream on GitHub, asked of the releases API. Dependabot
+  does not read such a file, so this is what says when an upstream security
+  release is out. Drafts and prereleases are skipped, and versions compare as
+  dotted numbers. It never changes the pin. Fail on a schedule; warn only on
+  a pull request. Needs Node on the PATH and no install.
+inputs:
+  repository:
+    description: The upstream on GitHub, as owner/name, for example `PCRE2Project/pcre2`.
+    required: true
+  file:
+    description: The file that holds the pin, for example `build/build.sh`.
+    required: true
+  pattern:
+    description: >-
+      A JavaScript regular expression that matches the one line of the pin,
+      with the version in capture group 1, for example `^PCRE2_VERSION=(.+)$`.
+      `^` and `$` match at each line.
+    required: true
+  tag-pattern:
+    description: >-
+      A JavaScript regular expression that matches the tag of a release, with
+      the version in capture group 1, for example `^pcre2-(.+)$`. A release
+      whose tag does not match is skipped.
+    default: '^v?(.+)$'
+  warn-only:
+    description: '`true` annotates and exits 0 instead of failing. Set it on a pull request.'
+    default: 'false'
+  token:
+    description: The token for the releases API. GITHUB_TOKEN reads the releases of a public repository.
+    default: ${{ github.token }}
+  working-directory:
+    description: Where the file path is resolved from.
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: The pin is the newest upstream release
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        REPOSITORY: ${{ inputs.repository }}
+        PIN_FILE: ${{ inputs.file }}
+        PATTERN: ${{ inputs.pattern }}
+        TAG_PATTERN: ${{ inputs.tag-pattern }}
+        WARN_ONLY: ${{ inputs.warn-only }}
+        SCRIPT: ${{ github.action_path }}/upstream-release.mjs
+      # `--name=value`, because parseArgs refuses a separate value that
+      # starts with `-`. Any warn-only value other than true or false fails:
+      # a misspelt `false` would only warn, and pass.
+      run: |
+        args=("--repository=$REPOSITORY" "--file=$PIN_FILE" "--pattern=$PATTERN" "--tag-pattern=$TAG_PATTERN")
+        case "$WARN_ONLY" in
+          true) node "$SCRIPT" "${args[@]}" --warn-only ;;
+          false) node "$SCRIPT" "${args[@]}" ;;
+          *)
+            echo "::error::warn-only is \"$WARN_ONLY\". Set it to true or false."
+            exit 1
+            ;;
+        esac

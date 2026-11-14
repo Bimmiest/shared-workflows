@@ -214,6 +214,30 @@ jobs:
         with:
           working-directory: test/fixtures/node-version-check/library
 
+      # The pin of pcre2-wasm-utf16, against the real releases of PCRE2. The
+      # pin is 999.0, newer than each release, so the step passes whatever
+      # PCRE2 releases.
+      - name: upstream-release-check
+        uses: ./.github/actions/upstream-release-check # zizmor: ignore[self-repository]
+        with:
+          repository: PCRE2Project/pcre2
+          file: build/build.sh
+          pattern: '^PCRE2_VERSION=(.+)$'
+          tag-pattern: '^pcre2-(.+)$'
+          working-directory: test/fixtures/upstream-release-check/pass
+
+      # The fixture that must fail, so the step passes only when warn-only
+      # gets to the script.
+      - name: upstream-release-check, warn-only
+        uses: ./.github/actions/upstream-release-check # zizmor: ignore[self-repository]
+        with:
+          repository: PCRE2Project/pcre2
+          file: build/build.sh
+          pattern: '^PCRE2_VERSION=(.+)$'
+          tag-pattern: '^pcre2-(.+)$'
+          warn-only: true
+          working-directory: test/fixtures/upstream-release-check/fail
+
       - name: coverage-ratchet (must fail)
         id: coverage-ratchet
         continue-on-error: true
@@ -341,6 +365,18 @@ jobs:
           engines-major: 'yes'
           working-directory: test/fixtures/node-version-check/pass
 
+      # The pin is 10.0, older than each PCRE2 release.
+      - name: upstream-release-check (must fail)
+        id: upstream-release-check
+        continue-on-error: true
+        uses: ./.github/actions/upstream-release-check # zizmor: ignore[self-repository]
+        with:
+          repository: PCRE2Project/pcre2
+          file: build/build.sh
+          pattern: '^PCRE2_VERSION=(.+)$'
+          tag-pattern: '^pcre2-(.+)$'
+          working-directory: test/fixtures/upstream-release-check/fail
+
       # `outcome` is the result before continue-on-error turns it green.
       - name: Each fixture that must fail failed
         env:
@@ -360,9 +396,10 @@ jobs:
           NODE_VERSION_CHECK: ${{ steps.node-version-check.outcome }}
           NODE_VERSION_CHECK_ENGINES_MAJOR: ${{ steps.node-version-check-engines-major.outcome }}
           NODE_VERSION_CHECK_ENGINES_MAJOR_VALUE: ${{ steps.node-version-check-engines-major-value.outcome }}
+          UPSTREAM_RELEASE_CHECK: ${{ steps.upstream-release-check.outcome }}
         run: |
           status=0
-          for name in COVERAGE_RATCHET MUTATION_RATCHET AUDIT_CHECK LICENCE_CHECK LICENCE_CHECK_INCLUDE_DEV PACKAGE_CONTENTS_CHECK LINT_ALLOWLIST_CHECK LOCKFILE_NESTING_CHECK DEPENDABOT_REVIEW_FACTS DEPENDABOT_REVIEW DOCS_CHECK NODE_PATCH_CHECK BASELINE_CHECK NODE_VERSION_CHECK NODE_VERSION_CHECK_ENGINES_MAJOR NODE_VERSION_CHECK_ENGINES_MAJOR_VALUE; do
+          for name in COVERAGE_RATCHET MUTATION_RATCHET AUDIT_CHECK LICENCE_CHECK LICENCE_CHECK_INCLUDE_DEV PACKAGE_CONTENTS_CHECK LINT_ALLOWLIST_CHECK LOCKFILE_NESTING_CHECK DEPENDABOT_REVIEW_FACTS DEPENDABOT_REVIEW DOCS_CHECK NODE_PATCH_CHECK BASELINE_CHECK NODE_VERSION_CHECK NODE_VERSION_CHECK_ENGINES_MAJOR NODE_VERSION_CHECK_ENGINES_MAJOR_VALUE UPSTREAM_RELEASE_CHECK; do
             if [ "${!name}" != failure ]; then
               echo "::error::The fixture for ${name} that must fail ended in '${!name}'."
               status=1

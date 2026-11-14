@@ -14,7 +14,7 @@
   },
   "scripts": {
     "test": "node --test '.github/actions/**/*.test.mjs'",
-    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include='.github/actions/**/*.mjs' --test-coverage-exclude='**/*.test.mjs' --test-coverage-lines=97 --test-coverage-branches=94 --test-coverage-functions=97 '.github/actions/**/*.test.mjs'"
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include='.github/actions/**/*.mjs' --test-coverage-exclude='**/*.test.mjs' --test-coverage-lines=98 --test-coverage-branches=94 --test-coverage-functions=97 '.github/actions/**/*.test.mjs'"
   },
   "bin": {
     "audit-check": ".github/actions/audit-check/audit-check.mjs",
@@ -32,6 +32,7 @@
     "node-version-check": ".github/actions/node-version-check/node-version.mjs",
     "package-contents-check": ".github/actions/package-contents-check/package-contents-check.mjs",
     "pr-hygiene": ".github/actions/pr-hygiene/pr-hygiene.mjs",
-    "repo-settings-check": ".github/actions/repo-settings-check/repo-settings-check.mjs"
+    "repo-settings-check": ".github/actions/repo-settings-check/repo-settings-check.mjs",
+    "upstream-release-check": ".github/actions/upstream-release-check/upstream-release.mjs"
   }
 }
