@@ -1,0 +1,9 @@
+{
+  "name": "randomised-tests-fixtures",
+  "private": true,
+  "type": "module",
+  "description": "The project that the randomised-tests fixtures test. CI installs its Vitest with npm ci.",
+  "devDependencies": {
+    "vitest": "5.1.0"
+  }
+}
