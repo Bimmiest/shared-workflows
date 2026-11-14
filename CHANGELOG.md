@@ -7,6 +7,22 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+## 2.0.0 — 2026-11-14
+
+**Breaking.** Two checks now fail on something that they passed before.
+Before you bump the pin in a repository, do these two things there:
+
+1. Add `.claude/settings.json`, from repo-template. `baseline-check` fails
+   without it. If nobody runs Claude Code in the repository, add an entry to
+   `.baseline-exceptions.json` instead.
+2. Create each label that its issue forms and its workflows apply, and list
+   the labels that no form names (for example `no-issue` and `no-changelog`)
+   in `.repo-settings.json`. `repo-settings-check` fails for each missing
+   label.
+
+The sections "Changed" below give the detail. Each other change in this
+release is a minor version and needs no action.
+
 ### Added
 
 - **`security.yml` runs Semgrep, when asked**
