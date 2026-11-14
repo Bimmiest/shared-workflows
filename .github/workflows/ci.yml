@@ -214,16 +214,15 @@ jobs:
         with:
           working-directory: test/fixtures/node-version-check/library
 
-      # The pin of pcre2-wasm-utf16, against the real releases of PCRE2. The
-      # pin is 999.0, newer than each release, so the step passes whatever
-      # PCRE2 releases.
+      # A pin against the real releases of this repository, with the default
+      # tag-pattern, so the step needs no other repository. The pin is 999.0,
+      # newer than each release, so the step passes whatever is released.
       - name: upstream-release-check
         uses: ./.github/actions/upstream-release-check # zizmor: ignore[self-repository]
         with:
-          repository: PCRE2Project/pcre2
+          repository: Bimmiest/shared-workflows
           file: build/build.sh
-          pattern: '^PCRE2_VERSION=(.+)$'
-          tag-pattern: '^pcre2-(.+)$'
+          pattern: '^UPSTREAM_VERSION=(.+)$'
           working-directory: test/fixtures/upstream-release-check/pass
 
       # The fixture that must fail, so the step passes only when warn-only
@@ -231,10 +230,9 @@ jobs:
       - name: upstream-release-check, warn-only
         uses: ./.github/actions/upstream-release-check # zizmor: ignore[self-repository]
         with:
-          repository: PCRE2Project/pcre2
+          repository: Bimmiest/shared-workflows
           file: build/build.sh
-          pattern: '^PCRE2_VERSION=(.+)$'
-          tag-pattern: '^pcre2-(.+)$'
+          pattern: '^UPSTREAM_VERSION=(.+)$'
           warn-only: true
           working-directory: test/fixtures/upstream-release-check/fail
 
@@ -365,16 +363,15 @@ jobs:
           engines-major: 'yes'
           working-directory: test/fixtures/node-version-check/pass
 
-      # The pin is 10.0, older than each PCRE2 release.
+      # The pin is 1.0, older than the newest release of this repository.
       - name: upstream-release-check (must fail)
         id: upstream-release-check
         continue-on-error: true
         uses: ./.github/actions/upstream-release-check # zizmor: ignore[self-repository]
         with:
-          repository: PCRE2Project/pcre2
+          repository: Bimmiest/shared-workflows
           file: build/build.sh
-          pattern: '^PCRE2_VERSION=(.+)$'
-          tag-pattern: '^pcre2-(.+)$'
+          pattern: '^UPSTREAM_VERSION=(.+)$'
           working-directory: test/fixtures/upstream-release-check/fail
 
       # `outcome` is the result before continue-on-error turns it green.
