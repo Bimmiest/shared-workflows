@@ -214,6 +214,24 @@ jobs:
         with:
           working-directory: test/fixtures/node-version-check/library
 
+      # The action runs the caller's own Vitest, so its fixtures install one.
+      - name: Install the Vitest of the randomised-tests fixtures
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        working-directory: test/fixtures/randomised-tests
+
+      # The tests check TZ and LANG against the defaults of the inputs, and
+      # pass in each order.
+      - name: randomised-tests
+        uses: ./.github/actions/randomised-tests # zizmor: ignore[self-repository]
+        with:
+          working-directory: test/fixtures/randomised-tests/pass
+
+      # The fixture that must fail passes in file order. Thus it fails below
+      # only because the shuffle options get to Vitest.
+      - name: randomised-tests, the fixture that must fail, in file order
+        run: npx vitest run
+        working-directory: test/fixtures/randomised-tests/fail
+
       - name: coverage-ratchet (must fail)
         id: coverage-ratchet
         continue-on-error: true
@@ -341,6 +359,31 @@ jobs:
           engines-major: 'yes'
           working-directory: test/fixtures/node-version-check/pass
 
+      # Seed 3 runs the second test of the fixture first, with Vitest 5.1.0
+      # from the fixture's lockfile. Find a new seed if a bump of that Vitest
+      # changes the shuffle.
+      - name: randomised-tests (must fail)
+        id: randomised-tests
+        continue-on-error: true
+        uses: ./.github/actions/randomised-tests # zizmor: ignore[self-repository]
+        with:
+          seed: '3'
+          working-directory: test/fixtures/randomised-tests/fail
+
+      - name: randomised-tests gave its seed as an output
+        env:
+          SEED: ${{ steps.randomised-tests.outputs.seed }}
+        run: test "$SEED" = 3 || { echo "::error::The seed output is '$SEED', not 3."; exit 1; }
+
+      # The fixture that passes, so it fails only on the value of the input.
+      - name: randomised-tests, seed is not a number (must fail)
+        id: randomised-tests-seed-value
+        continue-on-error: true
+        uses: ./.github/actions/randomised-tests # zizmor: ignore[self-repository]
+        with:
+          seed: 3; echo
+          working-directory: test/fixtures/randomised-tests/pass
+
       # `outcome` is the result before continue-on-error turns it green.
       - name: Each fixture that must fail failed
         env:
@@ -360,9 +403,11 @@ jobs:
           NODE_VERSION_CHECK: ${{ steps.node-version-check.outcome }}
           NODE_VERSION_CHECK_ENGINES_MAJOR: ${{ steps.node-version-check-engines-major.outcome }}
           NODE_VERSION_CHECK_ENGINES_MAJOR_VALUE: ${{ steps.node-version-check-engines-major-value.outcome }}
+          RANDOMISED_TESTS: ${{ steps.randomised-tests.outcome }}
+          RANDOMISED_TESTS_SEED_VALUE: ${{ steps.randomised-tests-seed-value.outcome }}
         run: |
           status=0
-          for name in COVERAGE_RATCHET MUTATION_RATCHET AUDIT_CHECK LICENCE_CHECK LICENCE_CHECK_INCLUDE_DEV PACKAGE_CONTENTS_CHECK LINT_ALLOWLIST_CHECK LOCKFILE_NESTING_CHECK DEPENDABOT_REVIEW_FACTS DEPENDABOT_REVIEW DOCS_CHECK NODE_PATCH_CHECK BASELINE_CHECK NODE_VERSION_CHECK NODE_VERSION_CHECK_ENGINES_MAJOR NODE_VERSION_CHECK_ENGINES_MAJOR_VALUE; do
+          for name in COVERAGE_RATCHET MUTATION_RATCHET AUDIT_CHECK LICENCE_CHECK LICENCE_CHECK_INCLUDE_DEV PACKAGE_CONTENTS_CHECK LINT_ALLOWLIST_CHECK LOCKFILE_NESTING_CHECK DEPENDABOT_REVIEW_FACTS DEPENDABOT_REVIEW DOCS_CHECK NODE_PATCH_CHECK BASELINE_CHECK NODE_VERSION_CHECK NODE_VERSION_CHECK_ENGINES_MAJOR NODE_VERSION_CHECK_ENGINES_MAJOR_VALUE RANDOMISED_TESTS RANDOMISED_TESTS_SEED_VALUE; do
             if [ "${!name}" != failure ]; then
               echo "::error::The fixture for ${name} that must fail ended in '${!name}'."
               status=1

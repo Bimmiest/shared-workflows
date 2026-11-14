@@ -1,0 +1,93 @@
+name: Randomised tests
+description: >-
+  Runs the tests in a shuffled order, from a seed, in a time zone and a locale
+  that are not those of the machine that wrote them. A test that passes only
+  after another test, or only in UTC, fails here. The seed and the command
+  that runs the same order again go to the log and the job summary, so a red
+  run can be repeated. Run after the install, in a job of the caller with
+  `if: github.event_name == 'schedule'`: a shuffled order on each pull request
+  turns one hidden dependency into failures on unrelated changes.
+inputs:
+  tz:
+    description: The `TZ` of the test run. Far from UTC, with daylight saving time.
+    default: America/Los_Angeles
+  lang:
+    description: The `LANG` of the test run. A locale whose decimal separator is a comma.
+    default: de_DE.UTF-8
+  seed:
+    description: >-
+      The seed of the shuffle, a whole number of 1 to 15 digits. Empty makes a
+      new seed for each run. Give the seed of a red run to run its order again.
+    default: ''
+  command:
+    description: >-
+      The test command, without the shuffle options. The action adds
+      `--sequence.shuffle --sequence.seed=<seed>` at the end. One line, split
+      into words at spaces and run with no shell: no quotes, `$`, `&&`, `|` or
+      `NAME=value` prefix. For an npm script, end the command with `--`, for
+      example `npm run test:unit --`.
+    default: npx vitest run
+  working-directory:
+    description: Where the command runs.
+    default: .
+outputs:
+  seed:
+    description: The seed of the run.
+    value: ${{ steps.run.outputs.seed }}
+runs:
+  using: composite
+  steps:
+    - name: The tests pass in a shuffled order
+      id: run
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        TZ: ${{ inputs.tz }}
+        LANG: ${{ inputs.lang }}
+        SEED: ${{ inputs.seed }}
+        COMMAND: ${{ inputs.command }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+      # The command is split into words with `read`, and the words run as one
+      # program with its arguments. Thus no input gets to a shell parser:
+      # `eval` or `bash -c` would run a `;` or a `$( )` in the command as
+      # code. A newline in an input could start a workflow command in the
+      # log, so each input must be one line.
+      run: |
+        for value in "$COMMAND" "$TZ" "$LANG"; do
+          if [[ "$value" == *$'\n'* ]]; then
+            echo "::error::The command, tz and lang inputs must each be one line."
+            exit 1
+          fi
+        done
+        if [ -z "$SEED" ]; then
+          # 30 bits from two values of RANDOM, which has 15 bits each.
+          seed=$(( (RANDOM << 15) | RANDOM ))
+        elif [[ "$SEED" =~ ^[0-9]{1,15}$ ]]; then
+          # 15 digits fit in a JavaScript number with no loss.
+          seed=$SEED
+        else
+          echo "::error::The seed input must be a whole number of 1 to 15 digits, or empty for a new seed."
+          exit 1
+        fi
+        read -r -a words <<< "$COMMAND"
+        if [ "${#words[@]}" -eq 0 ]; then
+          echo "::error::The command input is empty. Give the test command, for example npx vitest run."
+          exit 1
+        fi
+        words+=(--sequence.shuffle "--sequence.seed=$seed")
+        replay="TZ=$TZ LANG=$LANG ${words[*]}"
+        if [ "$WORKING_DIRECTORY" != . ]; then
+          replay="cd $WORKING_DIRECTORY && $replay"
+        fi
+        echo "seed=$seed" >> "$GITHUB_OUTPUT"
+        echo "Seed: $seed. Replay: $replay"
+        {
+          echo "### Randomised tests"
+          echo
+          echo "Seed: \`$seed\`. To run the tests in the same order again:"
+          echo
+          echo '```sh'
+          echo "$replay"
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+        "${words[@]}"

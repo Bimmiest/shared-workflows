@@ -211,6 +211,44 @@ jobs:
 - **Not a required check.** A required check makes each merge wait for the
   run, which is slow. The reviewer decides if a red run can merge.
 
+## Run the tests in a shuffled order
+
+`randomised-tests` finds a test that passes only after another test, or
+only in one time zone or locale. Run it in a job of your `ci.yml`, on the
+schedule only. On each pull request, a new order makes one hidden dependency
+fail unrelated changes:
+
+```yaml
+  randomised:
+    if: github.event_name == 'schedule'
+    name: unit tests, randomised
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@<sha> # vX.Y.Z
+        with:
+          persist-credentials: false
+      - uses: Bimmiest/shared-workflows/.github/actions/setup-node-project@<sha> # vX.Y.Z
+      - uses: Bimmiest/shared-workflows/.github/actions/randomised-tests@<sha> # vX.Y.Z
+```
+
+- **The seed.** With no `seed`, the action makes a new seed of 30 bits for
+  each run. A `seed` must be a whole number of 1 to 15 digits. The action
+  writes the seed to the log and the job summary, and gives it as the `seed`
+  output.
+- **Run the same order again.** The summary gives the command, with `TZ`,
+  `LANG` and the seed. Run it on your machine. To run it in CI, give the
+  seed as the `seed` input.
+- **The command.** The action adds `--sequence.shuffle` and
+  `--sequence.seed=<seed>` at the end of `command`. It splits `command` into
+  words at spaces, and runs the words as one program with its arguments, with
+  no shell. Thus quotes, `$`, `;`, `&&`, `|` and a `NAME=value` prefix do not
+  work. Put a longer command in an npm script, and end `command` with `--`,
+  for example `npm run test:unit --`. Without `--`, npm reads the two options
+  as its own.
+- **The environment.** Give a variable for the test run in the `env` of the
+  step. `tz` and `lang` set `TZ` and `LANG`. Each input must be one line.
+
 ## Run a check on your own machine
 
 The scripts take the same arguments as the actions. Use one of two methods.
