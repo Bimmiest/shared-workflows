@@ -8,10 +8,13 @@
  *
  * Everything about the pull request arrives through the environment, never
  * interpolated into a command, because the body and the branch are whatever
- * their author typed:
+ * their author typed. The body is the exception: it is read from the event
+ * payload file, because Linux refuses one environment string over 128 KiB
+ * and a bot's release notes pass that (shared-workflows #120).
+ *
+ *   GITHUB_EVENT_PATH    the event payload file, set by the runner
  *
  *   PR_BRANCH            the head ref
- *   PR_BODY              the description
  *   PR_LABELS            the label names, as a JSON array
  *   PR_AUTHOR            the login that opened it
  *   PR_TYPES             the allowed branch types, comma-separated
@@ -24,7 +27,7 @@
  * Prints every rule the pull request broke as a `::error::` annotation and
  * exits 1, or prints that it passed and exits 0.
  */
-import { realpathSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -137,6 +140,18 @@ const list = (text, fallback) => {
   return text.split(',').map((s) => s.trim()).filter(Boolean);
 };
 
+/** The description of the pull request, from the event payload file. */
+export function readBody(eventPath) {
+  if (!eventPath) throw new Error('GITHUB_EVENT_PATH is not set; this action runs on pull_request events.');
+  let event;
+  try {
+    event = JSON.parse(readFileSync(eventPath, 'utf8'));
+  } catch (error) {
+    throw new Error(`Cannot read the event payload at ${eventPath}: ${error.message}`);
+  }
+  return event.pull_request?.body ?? '';
+}
+
 /** Reads the pull request and the rules from the environment, as the action passes them. */
 export function fromEnv(env) {
   let labels = [];
@@ -148,7 +163,7 @@ export function fromEnv(env) {
     // for more rather than less, which is the safe direction to be wrong in.
   }
   return {
-    request: { branch: env.PR_BRANCH ?? '', body: env.PR_BODY ?? '', labels, author: env.PR_AUTHOR ?? '' },
+    request: { branch: env.PR_BRANCH ?? '', body: readBody(env.GITHUB_EVENT_PATH), labels, author: env.PR_AUTHOR ?? '' },
     rules: {
       types: list(env.PR_TYPES, DEFAULT_TYPES),
       noIssueLabel: env.PR_NO_ISSUE_LABEL?.trim() || DEFAULT_NO_ISSUE_LABEL,
@@ -159,7 +174,13 @@ export function fromEnv(env) {
 
 /** The lines to print and the exit code, for the pull request `env` describes. */
 export function run(env) {
-  const { request, rules } = fromEnv(env);
+  let parsed;
+  try {
+    parsed = fromEnv(env);
+  } catch (error) {
+    return { lines: [`::error::${escapeCommand(error.message)}`], code: 1 };
+  }
+  const { request, rules } = parsed;
   const problems = check(request, rules);
   if (problems.length === 0) return { lines: ['Branch and issue link follow the convention.'], code: 0 };
   // `::error::` so each rule is its own annotation on the pull request, rather

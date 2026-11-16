@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { describe, it } from 'node:test';
-import { branchIssue, branchPattern, check, escapeCommand, fromEnv, linkedIssues, run } from './pr-hygiene.mjs';
+import { branchIssue, branchPattern, check, escapeCommand, fromEnv, linkedIssues, readBody, run } from './pr-hygiene.mjs';
 
 describe('branchPattern', () => {
   const pattern = branchPattern();
@@ -103,9 +106,17 @@ describe('check', () => {
   });
 });
 
+/** An event payload file holding `body`; returns its path. */
+const eventFile = (body) => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'pr-hygiene-'));
+  const file = path.join(dir, 'event.json');
+  writeFileSync(file, JSON.stringify({ pull_request: { body } }));
+  return file;
+};
+
 describe('fromEnv and run', () => {
   it('reads the request and the rules from the environment, with defaults', () => {
-    const { request, rules } = fromEnv({ PR_BRANCH: 'fix/x-1', PR_BODY: 'Closes #1', PR_LABELS: '["ui"]', PR_AUTHOR: 'me' });
+    const { request, rules } = fromEnv({ PR_BRANCH: 'fix/x-1', GITHUB_EVENT_PATH: eventFile('Closes #1'), PR_LABELS: '["ui"]', PR_AUTHOR: 'me' });
     assert.deepEqual(request, { branch: 'fix/x-1', body: 'Closes #1', labels: ['ui'], author: 'me' });
     assert.deepEqual(rules.types, ['feature', 'fix', 'refactor', 'docs', 'ci', 'chore']);
     assert.equal(rules.noIssueLabel, 'no-issue');
@@ -113,28 +124,50 @@ describe('fromEnv and run', () => {
   });
 
   it('treats an unreadable label list as no labels', () => {
-    assert.deepEqual(fromEnv({ PR_LABELS: 'not json' }).request.labels, []);
+    assert.deepEqual(fromEnv({ GITHUB_EVENT_PATH: eventFile(''), PR_LABELS: 'not json' }).request.labels, []);
   });
 
   it('parses comma lists and trims them', () => {
-    const { rules } = fromEnv({ PR_TYPES: ' feat, fix ', PR_EXEMPT_AUTHORS: 'a[bot], b[bot]', PR_NO_ISSUE_LABEL: ' trivial ' });
+    const { rules } = fromEnv({ GITHUB_EVENT_PATH: eventFile(''), PR_TYPES: ' feat, fix ', PR_EXEMPT_AUTHORS: 'a[bot], b[bot]', PR_NO_ISSUE_LABEL: ' trivial ' });
     assert.deepEqual(rules.types, ['feat', 'fix']);
     assert.deepEqual(rules.exemptAuthors, ['a[bot]', 'b[bot]']);
     assert.equal(rules.noIssueLabel, 'trivial');
   });
 
   it('prints one escaped annotation per problem and exits 1', () => {
-    const { lines, code } = run({ PR_BRANCH: 'bad\nname', PR_BODY: '', PR_LABELS: '[]', PR_AUTHOR: 'x' });
+    const { lines, code } = run({ PR_BRANCH: 'bad\nname', GITHUB_EVENT_PATH: eventFile(''), PR_LABELS: '[]', PR_AUTHOR: 'x' });
     assert.equal(code, 1);
     assert.ok(lines.every((l) => l.startsWith('::error::') && !l.includes('\n')));
     assert.match(lines[0], /bad%0Aname/);
   });
 
   it('exits 0 with one line when it passes', () => {
-    assert.deepEqual(run({ PR_BRANCH: 'fix/x-1', PR_BODY: 'Closes #1', PR_LABELS: '[]', PR_AUTHOR: 'x' }), {
+    assert.deepEqual(run({ PR_BRANCH: 'fix/x-1', GITHUB_EVENT_PATH: eventFile('Closes #1'), PR_LABELS: '[]', PR_AUTHOR: 'x' }), {
       lines: ['Branch and issue link follow the convention.'],
       code: 0,
     });
+  });
+});
+
+describe('the event payload file', () => {
+  it('reads and judges a body over 128 KiB, the limit of one environment string', () => {
+    const body = `${'x'.repeat(200 * 1024)}\nCloses #1`;
+    assert.equal(readBody(eventFile(body)).length, body.length);
+    assert.deepEqual(run({ PR_BRANCH: 'fix/x-1', GITHUB_EVENT_PATH: eventFile(body), PR_LABELS: '[]', PR_AUTHOR: 'x' }).code, 0);
+    assert.equal(run({ PR_BRANCH: 'fix/x-1', GITHUB_EVENT_PATH: eventFile('x'.repeat(200 * 1024)), PR_LABELS: '[]', PR_AUTHOR: 'x' }).code, 1);
+  });
+
+  it('reads a null body as empty', () => {
+    assert.equal(readBody(eventFile(null)), '');
+  });
+
+  it('gives a clear error, not a crash, when the file is missing or the path is unset', () => {
+    const missing = path.join(tmpdir(), 'pr-hygiene-no-such-dir', 'event.json');
+    for (const env of [{ PR_BRANCH: 'fix/x-1', GITHUB_EVENT_PATH: missing }, { PR_BRANCH: 'fix/x-1' }]) {
+      const { lines, code } = run(env);
+      assert.equal(code, 1);
+      assert.match(lines[0], /^::error::.*(Cannot read the event payload|GITHUB_EVENT_PATH is not set)/);
+    }
   });
 });
 

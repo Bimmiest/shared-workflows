@@ -7,6 +7,18 @@ says what a consumer gets when it bumps its pin.
 
 ## Unreleased
 
+## 2.0.1 — 2026-11-16
+
+### Fixed
+
+- **`pr-hygiene` no longer fails on a long pull request description**
+  ([#120](https://github.com/Bimmiest/shared-workflows/issues/120)). The
+  action passed the description as an environment string, and Linux refuses
+  one over 128 KiB, so a Renovate pull request with long release notes
+  failed with `argument list too long` before the check ran. The script now
+  reads the description from the event file. No verdict changes: a patch
+  version.
+
 ## 2.0.0 — 2026-11-14
 
 **Breaking.** Two checks now fail on something that they passed before.
