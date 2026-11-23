@@ -165,7 +165,7 @@ jobs:
           persist-credentials: false
 
       # Pinned to a release, as a consumer pins it: `./` here is the caller.
-      - uses: Bimmiest/shared-workflows/.github/actions/setup-node-project@6d9565a7d992fe10a1368249d3bdef47688a08c5 # v1.13.0
+      - uses: Bimmiest/shared-workflows/.github/actions/setup-node-project@d4ad6bcc28c275faf19b6866e80abcce490477c6 # v2.0.0
         with:
           cache-dependency-path: ${{ inputs.cache-dependency-path || (inputs.working-directory != '.' && format('{0}/package-lock.json', inputs.working-directory) || '') }}
           install: 'false'
@@ -203,7 +203,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: Bimmiest/shared-workflows/.github/actions/setup-node-project@6d9565a7d992fe10a1368249d3bdef47688a08c5 # v1.13.0
+      - uses: Bimmiest/shared-workflows/.github/actions/setup-node-project@d4ad6bcc28c275faf19b6866e80abcce490477c6 # v2.0.0
         with:
           cache-dependency-path: ${{ inputs.cache-dependency-path || (inputs.working-directory != '.' && format('{0}/package-lock.json', inputs.working-directory) || '') }}
           working-directory: ${{ inputs.working-directory }}
@@ -278,7 +278,7 @@ jobs:
           path: .shared-workflows
           persist-credentials: false
 
-      - uses: Bimmiest/shared-workflows/.github/actions/setup-node-project@6d9565a7d992fe10a1368249d3bdef47688a08c5 # v1.13.0
+      - uses: Bimmiest/shared-workflows/.github/actions/setup-node-project@d4ad6bcc28c275faf19b6866e80abcce490477c6 # v2.0.0
         with:
           cache-dependency-path: ${{ inputs.cache-dependency-path || (inputs.working-directory != '.' && format('{0}/package-lock.json', inputs.working-directory) || '') }}
           install: 'false'
